@@ -7,8 +7,11 @@ pom.xml.next
 release.properties
 dependency-reduced-pom.xml
 buildNumber.properties
-.mvn/timing.properties
+.mv/timing.properties
 .mvn/wrapper/maven-wrapper.jar
+
+# Compiled class file
+*.class
 
 # IDE
 .idea/
@@ -21,9 +24,19 @@ buildNumber.properties
 .settings/
 bin/
 
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
 # Logs
 logs/
 *.log
+
+# Log file
+hs_err_pid*
+replay_pid*
 
 # OS
 .DS_Store
@@ -46,10 +59,23 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.prod.example
+.env.unified
 
 # Database
 *.db
 *.sqlite
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
 
 # Temporary files
 *.tmp
@@ -61,9 +87,6 @@ dist-ssr/
 es_data/
 
 # Additional ignore files
-.env.production
-.env.prod.example
-.env.unified
 fix_learning_paths.sql
 fix_metadata_column.sql
 rebuild_database.sql
@@ -72,7 +95,6 @@ frontend_test.html
 elasticsearch-analysis-ik-8.11.0.zip
 elasticsearch-docker/
 test-docs/
-uploads/
 *.jar
 *.war
 *.ear
