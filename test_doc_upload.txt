@@ -1,0 +1,6 @@
+This is a test document for verifying the knowledge base document processing pipeline.
+It should be parsed, chunked, embedded, and indexed in Elasticsearch.
+
+The quick brown fox jumps over the lazy dog.
+Machine learning is a subset of artificial intelligence.
+Knowledge bases help organizations manage information effectively.

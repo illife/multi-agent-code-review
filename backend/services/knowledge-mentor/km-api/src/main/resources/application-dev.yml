@@ -1,0 +1,22 @@
+spring:
+  # 禁用 Kafka
+  kafka:
+    enabled: false
+    bootstrap-servers: nonexistent:9093
+
+  # 禁用 Kafka 自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+# 禁用 Kafka 健康检查
+management:
+  health:
+    kafka:
+      enabled: false
+
+# 设置日志级别
+logging:
+  level:
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR

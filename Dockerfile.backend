@@ -1,0 +1,60 @@
+# ============================================
+# 后端 Dockerfile
+# 多阶段构建，减小镜像体积
+# ============================================
+
+# 构建阶段
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+
+WORKDIR /build
+
+# 复制 pom.xml 并下载依赖（利用Docker缓存）
+COPY shared/pom.xml shared/
+COPY shared/shared-common/pom.xml shared/shared-common/
+COPY shared/shared-security/pom.xml shared/shared-security/
+COPY shared/shared-infrastructure/pom.xml shared/shared-infrastructure/
+COPY shared/shared-ai/pom.xml shared/shared-ai/
+COPY shared/shared-agent/pom.xml shared/shared-agent/
+
+COPY services/pom.xml services/
+COPY services/auth/pom.xml services/auth/
+COPY services/api-gateway/pom.xml services/api-gateway/
+COPY services/knowledge-mentor/pom.xml services/knowledge-mentor/
+COPY services/code-intelligence/pom.xml services/code-intelligence/
+
+RUN cd shared && mvn dependency:go-offline -B
+
+# 复制源代码
+COPY shared shared/
+COPY services services/
+
+# 构建项目（跳过测试）
+RUN mvn clean package -DskipTests -B -q
+
+# ============================================
+# 运行阶段 - API Gateway
+# ============================================
+FROM eclipse-temurin:17-jre-alpine AS api-gateway
+
+RUN addgroup -S spring && adduser -S spring -G spring
+WORKDIR /app
+
+# 复制jar包
+COPY --from=builder /build/services/api-gateway/target/*.jar app.jar
+
+# 创建日志目录
+RUN mkdir -p /var/log/app && chown -R spring:spring /var/log/app
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8082/actuator/health || exit 1
+
+# 切换用户
+USER spring:spring
+
+# JVM参数（针对低内存优化）
+ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app/"
+
+EXPOSE 8082
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

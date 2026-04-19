@@ -1,0 +1,57 @@
+# Agent 配置示例
+# 添加到 application.yml 或 application.properties
+
+# ========================================
+# Agent 功能开关
+# ========================================
+agent:
+  # 是否启用 Agent 功能
+  enabled: true
+
+  # 并行执行开关 (代码审查时会并行执行多个 Agent)
+  parallel-execution: true
+
+  # 超时时间 (毫秒)
+  timeout: 60000
+
+  # 最大重试次数
+  max-retries: 2
+
+  # 缓存执行结果
+  cache-results: true
+
+  # 缓存过期时间 (秒)
+  cache-ttl: 3600
+
+  # 各个 Agent 的启用开关
+  enabled-agents:
+    code-standards-inspector: true
+    architecture-guardian: true
+    security-auditor: true
+    performance-optimizer: true
+    teaching-mentor: true
+    skill-assessor: true
+    exercise-coach: true
+    learning-path-planner: true
+
+# ========================================
+# Qwen AI 配置
+# ========================================
+qwen:
+  # API 密钥 (从 https://bailian.console.aliyun.com/ 获取)
+  api-key: ${QWEN_API_KEY:your-api-key-here}
+
+  # API 地址
+  api-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+
+  # 聊天模型
+  chat-model: qwen-turbo
+
+  # 嵌入模型
+  embedding-model: text-embedding-v4
+
+  # 最大生成 Token 数
+  max-tokens: 4000
+
+  # 温度参数 (0-1, 越高越随机)
+  temperature: 0.7

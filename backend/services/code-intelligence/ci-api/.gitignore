@@ -1,0 +1,42 @@
+# Compiled class files
+*.class
+target/
+
+# Log files
+*.log
+
+# Package Files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+# Local Configuration - contains sensitive data
+**/application-local.yml
+**/application-local.properties
+**/application-dev.yml
+**/application-dev.properties
+**/application-prod.yml
+**/application-prod.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp

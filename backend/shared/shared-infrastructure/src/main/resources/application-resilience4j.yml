@@ -1,0 +1,246 @@
+# ============================================
+# Resilience4j 熔断限流配置
+# ============================================
+
+resilience4j:
+  # 全局配置
+  circuit-breaker:
+    configs:
+      default:
+        # 滑动窗口类型：COUNT_BASED(基于计数)或TIME_BASED(基于时间)
+        sliding-window-type: COUNT_BASED
+        # 滑动窗口大小
+        sliding-window-size: 50
+        # 最小调用次数（达到此次数后才计算失败率）
+        minimum-number-of-calls: 20
+        # 失败率阈值（超过此值触发熔断）
+        failure-rate-threshold: 50
+        # 慢调用阈值（超过此时长的调用视为慢调用）
+        slow-call-duration-threshold: 3000ms
+        # 慢调用率阈值
+        slow-call-rate-threshold: 50
+        # 熔断器开启后的等待时间（半开状态）
+        wait-duration-in-open-state: 60s
+        # 半开状态允许的调用次数
+        permitted-number-of-calls-in-half-open-state: 5
+        # 自动从开启到半开的过渡
+        automatic-transition-from-open-to-half-open-enabled: true
+
+    # 实例配置
+    instances:
+      # 知识库服务熔断器
+      knowledgeService:
+        base-config: default
+        sliding-window-size: 100
+        failure-rate-threshold: 60
+        slow-call-duration-threshold: 5000ms
+
+      # 代码智能服务熔断器
+      codeIntelligenceService:
+        base-config: default
+        sliding-window-size: 50
+        failure-rate-threshold: 70
+        slow-call-duration-threshold: 10000ms
+
+      # AI API熔断器（Qwen等）
+      aiService:
+        sliding-window-size: 20
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 80
+        slow-call-duration-threshold: 30000ms
+        wait-duration-in-open-state: 120s
+
+      # Elasticsearch熔断器
+      elasticsearchService:
+        sliding-window-size: 100
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 2000ms
+
+      # Kafka熔断器
+      kafkaService:
+        sliding-window-size: 50
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 40
+        wait-duration-in-open-state: 30s
+
+  # 限流配置
+  ratelimiter:
+    configs:
+      default:
+        # 限流周期
+        limit-refresh-period: 1s
+        # 周期内允许的请求数
+        limit-for-period: 100
+        # 超时时间
+        timeout-duration: 5s
+
+    instances:
+      # API全局限流
+      apiGlobal:
+        limit-refresh-period: 1s
+        limit-for-period: 50
+        timeout-duration: 3s
+
+      # 文档上传限流（防止大文件冲击）
+      documentUpload:
+        limit-refresh-period: 10s
+        limit-for-period: 5
+        timeout-duration: 60s
+
+      # AI问答限流（控制成本）
+      qaRequest:
+        limit-refresh-period: 1s
+        limit-for-period: 10
+        timeout-duration: 30s
+
+      # 代码审查限流（耗时操作）
+      codeReview:
+        limit-refresh-period: 1s
+        limit-for-period: 3
+        timeout-duration: 120s
+
+      # 搜索限流
+      searchRequest:
+        limit-refresh-period: 1s
+        limit-for-period: 30
+        timeout-duration: 10s
+
+  # 舱壁隔离（线程池隔离）
+  thread-pool-bulkhead:
+    configs:
+      default:
+        max-thread-pool-size: 10
+        core-thread-pool-size: 5
+        queue-capacity: 100
+        keep-alive-duration: 1s
+        writable-stack-trace-enabled: true
+
+    instances:
+      # AI服务线程池（耗时操作，独立隔离）
+      aiService:
+        max-thread-pool-size: 5
+        core-thread-pool-size: 2
+        queue-capacity: 20
+
+      # 文档处理线程池
+      documentProcessing:
+        max-thread-pool-size: 3
+        core-thread-pool-size: 1
+        queue-capacity: 10
+
+  # 重试配置
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+          - org.springframework.web.client.HttpClientErrorException$BadRequest
+
+    instances:
+      # AI API重试（幂等操作）
+      aiService:
+        max-attempts: 2
+        wait-duration: 1000ms
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+
+      # Elasticsearch重试
+      elasticsearchService:
+        max-attempts: 3
+        wait-duration: 200ms
+
+      # Kafka重试
+      kafkaService:
+        max-attempts: 5
+        wait-duration: 1000ms
+
+  # 超时配置
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 10s
+        cancel-running-future: true
+
+    instances:
+      # AI问答超时（30秒）
+      qaRequest:
+        timeout-duration: 30s
+
+      # 代码审查超时（2分钟）
+      codeReview:
+        timeout-duration: 120s
+
+      # 文档上传超时
+      documentUpload:
+        timeout-duration: 300s
+
+      # 普通API超时
+      defaultApi:
+        timeout-duration: 5s
+
+# ============================================
+# Feign 客户端配置（集成 Resilience4j）
+# ============================================
+
+feign:
+  circuitbreaker:
+    enabled: true
+
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 10000
+        loggerLevel: basic
+
+      # AI服务配置
+      ai-service:
+        connectTimeout: 10000
+        readTimeout: 60000
+        loggerLevel: headers
+
+      # 内部服务配置
+      internal-services:
+        connectTimeout: 2000
+        readTimeout: 5000
+
+# ============================================
+# 监控端点配置
+# ============================================
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers,ratelinimiters
+  endpoint:
+    health:
+      show-details: when-authorized
+    circuitbreakers:
+      enabled: true
+    ratelinimiters:
+      enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        resilience4j.circuitbreaker.slow.call.duration: true
+      percentiles:
+        resilience4j.circuitbreaker.slow.call.duration: 0.5,0.95,0.99
+      sla:
+        resilience4j.circuitbreaker.slow.call.duration: 100ms,500ms,1s,3s

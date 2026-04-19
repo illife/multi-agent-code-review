@@ -1,0 +1,94 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: auth-service
+  profiles:
+    active: auth-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/multi_agent_platform
+    username: kb_user
+    password: kb_password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 60000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+#  mail:
+#    host: smtp.example.com
+#    port: 587
+#    username: your-email@example.com
+#    password: your-password
+#    properties:
+#      mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+
+# JWT Configuration
+jwt:
+  secret: 7xC6H4acpIyLKfg1yKZzZZlbOrrbFhEQGIqh8kYhRfxtX+f7xWGyFcGyRjsfUVGHVm/dgysYInm33Bmidfc1mw==
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: 604800000  # 7 days (in milliseconds)
+
+# Auth Service Configuration
+auth:
+  password:
+    reset-token-expiry-hours: 24
+  refresh-token-expiry-days: 7
+
+# Logging
+logging:
+  level:
+    com.codereview.auth: DEBUG
+    com.think.platform.shared.security: DEBUG
+    org.springframework.security: INFO
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss} - %msg%n'
+
+# Actuator
+management:
+  server:
+    port: 8084
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Knife4j API Documentation Configuration
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    swagger-model-name: 实体类列表
+  production: false # 生产环境关闭
+  cors: false # 禁用 Knife4j 跨域（由 Gateway 处理）

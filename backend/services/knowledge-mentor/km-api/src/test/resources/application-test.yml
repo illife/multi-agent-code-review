@@ -1,0 +1,52 @@
+# Test Configuration for FileUploadController Tests
+spring:
+  # DataSource - Use H2 in-memory database for testing
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+
+  # Redis - Use embedded Redis for testing
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 15  # Use separate database for tests
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.think.platform.km: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.test: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# File Upload Configuration
+fileupload:
+  max-file-size: 1048576000  # 1GB
+  min-chunk-size: 5242880     # 5MB
+  max-chunk-size: 10485760    # 10MB
+  upload-expire-hours: 24
+  max-concurrent-chunks: 3
+  min-size-threshold: 52428800 # 50MB
+
+# MinIO Configuration (use test configuration)
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket-name: test-uploads
+  part-size: 5242880

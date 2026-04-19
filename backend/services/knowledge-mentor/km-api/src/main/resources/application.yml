@@ -1,0 +1,252 @@
+spring:
+  application:
+    name: knowledge-base-api
+
+  # Database Configuration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/multi_agent_platform}
+    username: ${SPRING_DATASOURCE_USERNAME:kb_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:kb_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        default_schema: public
+    open-in-view: false
+
+  # File Upload Configuration
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:500MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:500MB}
+      enabled: true
+
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9093}
+
+    # Kafka Topics配置
+    topic:
+      document-processing: ${SPRING_KAFKA_TOPIC_DOCUMENT_PROCESSING:document-processing}
+      document-processing-dlt: ${SPRING_KAFKA_TOPIC_DOCUMENT_PROCESSING_DLT:document-processing-dlt}
+      code-review-processing: ${SPRING_KAFKA_TOPIC_CODE_REVIEW_PROCESSING:code-review-processing}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      group-id: ${SPRING_KAFKA_CONSUMER_GROUP_ID:document-processor-group}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: ${SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES:*}
+    listener:
+      ack-mode: manual
+      concurrency: ${SPRING_KAFKA_LISTENER_CONCURRENCY:3}
+
+  # Redis Configuration (optional)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 5000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Server Configuration
+server:
+  port: 8080
+  compression:
+    enabled: true
+  error:
+    include-message: always
+    include-binding-errors: always
+  # Tomcat配置：增加最大请求大小限制
+  tomcat:
+    max-http-form-post-size: -1  # -1表示无限制
+    max-swallow-size: -1  # -1表示无限制（解决大文件上传问题）
+    connection-timeout: 60000  # 60秒连接超时
+    threads:
+      max: 200  # 最大线程数
+      min-spare: 10  # 最小空闲线程数
+
+# Elasticsearch Configuration
+elasticsearch:
+  uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+  username: ${ELASTICSEARCH_USERNAME:}
+  password: ${ELASTICSEARCH_PASSWORD:}
+  index-name: kb_document_chunks
+  connection-timeout: 10s
+  socket-timeout: 30s
+
+# AI Provider Configuration
+ai:
+  provider:
+    embedding: ${AI_PROVIDER_EMBEDDING:qwen}  # qwen, glm
+    chat: ${AI_PROVIDER_CHAT:qwen}              # qwen, glm
+
+# Qwen API Configuration (阿里云通义千问)
+qwen:
+  api-key: ${QWEN_API_KEY:}
+  api-url: ${QWEN_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+  embedding-model: text-embedding-v4
+  chat-model: qwen-turbo-2025-04-28
+  max-tokens: 2000
+  temperature: 0.7
+  timeout: 60s
+
+# GLM API Configuration (智谱AI)
+glm:
+  api-key: ${GLM_API_KEY:}
+  api-url: ${GLM_API_URL:https://open.bigmodel.cn/api/paas/v4}
+  embedding-model: embedding-2
+  chat-model: glm-4-flash
+  timeout: 60s
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:7xC6H4acpIyLKfg1yKZzZZlbOrrbFhEQGIqh8kYhRfxtX+f7xWGyFcGyRjsfUVGHVm/dgysYInm33Bmidfc1mw==}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+# Logging Configuration
+logging:
+  level:
+    root: ${LOGGING_LEVEL_ROOT:INFO}
+    com.think.platform.km: ${LOGGING_LEVEL_COM_COMPANY_KB:DEBUG}
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.type: TRACE
+    org.apache.kafka: ERROR
+    org.springframework.kafka: ERROR
+    org.springframework.kafka.listener: ERROR
+    org.springframework.kafka.listener.KafkaMessageListenerContainer: ERROR
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/knowledge-base-api.log
+    max-size: 10MB
+    max-history: 30
+
+# Management Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    # 启用Kafka健康检查
+    kafka:
+      enabled: true
+    # 启用默认的健康检查
+    defaults:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# 应用配置
+app:
+  # CORS跨域配置
+  cors:
+    # 允许的源地址（生产环境应该配置具体域名）
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:3000}
+    # 允许的HTTP方法
+    allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+    # 允许的请求头（不再使用"*"以提高安全性）
+    allowed-headers: Authorization,Content-Type,X-Requested-With,Accept,Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+    # 允许携带凭证
+    allow-credentials: true
+    # 预检请求缓存时间（秒）
+    max-age: 3600
+
+  # API访问频率限制配置
+  rate-limit:
+    # 是否启用频率限制
+    enabled: ${RATE_LIMIT_ENABLED:false}
+    # 认证端点限制（登录、注册等）- 每分钟10次
+    auth:
+      # 每秒许可数（10次/分钟 ≈ 0.17次/秒）
+      permits-per-second: 0.17
+    # 普通API端点限制 - 每分钟100次
+    api:
+      # 每秒许可数（100次/分钟 ≈ 1.67次/秒）
+      permits-per-second: 1.67
+    # 只读端点限制（GET请求）- 每分钟200次
+    read:
+      # 每秒许可数（200次/分钟 ≈ 3.33次/秒）
+      permits-per-second: 3.33
+
+  file:
+    upload-dir: ${UPLOAD_DIR:./uploads}
+    allowed-extensions: .pdf,.doc,.docx,.xls,.xlsx,.txt,.md,.markdown
+
+  chunk:
+    size: 500
+    overlap: 50
+    max-chunks-per-document: 1000
+    enable-intelligent: ${APP_CHUNK_ENABLE_INTELLIGENT:false}  # 是否启用智能父子分块（默认关闭，文件>100KB时启用）
+
+  search:
+    top-k: 5
+    rrf-k: 60
+    num-candidates: 100
+
+  websocket:
+    allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    heartbeat-interval: ${WEBSOCKET_HEARTBEAT_INTERVAL:30000}
+    max-session-idle-timeout: 300000
+
+  cache:
+    user-permissions-ttl: ${CACHE_USER_PERMISSIONS_TTL:300000}
+    qa-answer-ttl: ${CACHE_QA_ANSWER_TTL:3600000}
+    document-metadata-ttl: ${CACHE_DOCUMENT_METADATA_TTL:600000}
+
+  upload:
+    chunked-upload:
+      enabled: ${CHUNKED_UPLOAD_ENABLED:false}
+      min-chunk-size: ${MIN_CHUNK_SIZE:5242880} # 5MB
+      max-chunk-size: ${MAX_CHUNK_SIZE:10485760} # 10MB
+      max-file-size: ${MAX_FILE_SIZE:1073741824} # 1GB
+      expire-hours: ${UPLOAD_EXPIRE_HOURS:24}
+      concurrent-chunks: ${CONCURRENT_CHUNKS:3}
+      # 大文件强制使用分片上传(50MB+)
+      min-size-threshold: ${MIN_SIZE_THRESHOLD:52428800}
+
+# MinIO Configuration
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET_NAME:knowledge-base-documents}
+  part-size: ${MINIO_PART_SIZE:5242880} # 5MB

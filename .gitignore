@@ -1,0 +1,82 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Spring Boot
+application-local.yml
+application-local.properties
+
+# Uploads
+uploads/
+
+# Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Elasticsearch
+es_data/
+
+# Additional ignore files
+.env.production
+.env.prod.example
+.env.unified
+fix_learning_paths.sql
+fix_metadata_column.sql
+rebuild_database.sql
+test-doc.txt
+frontend_test.html
+elasticsearch-analysis-ik-8.11.0.zip
+elasticsearch-docker/
+test-docs/
+uploads/
+*.jar
+*.war
+*.ear
+.claude/
+memory/
+test-*.txt
+prometheus.yml

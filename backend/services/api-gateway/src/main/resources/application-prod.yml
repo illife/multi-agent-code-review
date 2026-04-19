@@ -1,0 +1,151 @@
+# ============================================
+# 生产环境配置
+# ============================================
+
+server:
+  port: 8082
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: 100
+      min-spare: 10
+
+spring:
+  application:
+    name: api-gateway
+
+  # 生产环境配置
+  profiles:
+    active: prod
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 50MB
+      file-size-threshold: 1MB
+
+  # Gateway配置
+  cloud:
+    gateway:
+      # 全局CORS
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - ${FRONTEND_URL:http://localhost:3000}
+              - ${FRONTEND_URL:https://your-domain.com}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      # 默认过滤器
+      default-filters:
+        - name: Retry
+          args:
+            retries: 2
+            statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+            methods: GET,POST
+            backoff:
+              firstBackoff: 100ms
+              maxBackoff: 1000ms
+              factor: 2
+              basedOnPreviousValue: false
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 50
+            redis-rate-limiter.burstCapacity: 100
+            redis-rate-limiter.requestedTokens: 1
+
+      # 服务路由配置
+      routes:
+        # 认证服务
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://auth-service:8083}
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+
+        # 知识库服务
+        - id: knowledge-mentor-service
+          uri: ${KNOWLEDGE_MENTOR_SERVICE_URL:http://knowledge-mentor:8080}
+          predicates:
+            - Path=/api/documents/**, /api/qa/**, /api/search/**
+          filters:
+            - StripPrefix=1
+
+        # 代码智能服务
+        - id: code-intelligence-service
+          uri: ${CODE_INTELLIGENCE_SERVICE_URL:http://code-intelligence:8088}
+          predicates:
+            - Path=/api/agent/**, /api/learning/**, /api/projects/**, /api/review/**, /api/analysis/**
+          filters:
+            - StripPrefix=1
+
+  # Redis配置（用于限流）
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1000ms
+
+# 服务端点配置
+services:
+  endpoints:
+    auth-service:
+      url: ${AUTH_SERVICE_URL:http://auth-service:8083}
+    code-intelligence-service:
+      url: ${CODE_INTELLIGENCE_SERVICE_URL:http://code-intelligence:8088}
+    knowledge-mentor-service:
+      url: ${KNOWLEDGE_MENTOR_SERVICE_URL:http://knowledge-mentor:8080}
+
+# JWT配置
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.think.platform: INFO
+    org.springframework.cloud.gateway: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
+  file:
+    name: /var/log/app/gateway.log
+    max-size: 100MB
+    max-history: 7
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway,circuitbreakers
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+      env: prod
