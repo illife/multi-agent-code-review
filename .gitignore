@@ -57,6 +57,7 @@ docs/
 DOCKER_COMPOSE_GUIDE.md
 backend/CLEANUP_OPTIONS.md
 backend/MICROSERVICES_SETUP_COMPLETE.md
+backend/*.md
 
 # Frontend
 node_modules/
@@ -104,6 +105,10 @@ Dockerfile.runtime
 
 # Local scripts and ad hoc test utilities
 scripts/
+backend/scripts/
+backend/start-*.sh
+backend/start-*.bat
+backend/services/*/start.bat
 
 # Temporary duplicate configs
 nginx/nginx-fixed.conf
