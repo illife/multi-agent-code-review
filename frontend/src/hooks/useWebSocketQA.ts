@@ -152,8 +152,8 @@ export interface UseWebSocketQAReturn {
  */
 export function useWebSocketQA(options: UseWebSocketQAOptions = {}): UseWebSocketQAReturn {
   const {
-    apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
-    wsPath = '/api/ws/qa',
+    apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api',
+    wsPath = '/ws/qa',
     sessionId: propSessionId,
     onChunk,
     onComplete,

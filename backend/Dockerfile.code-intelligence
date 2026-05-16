@@ -1,0 +1,66 @@
+# ============================================
+# Code Intelligence Dockerfile
+# ============================================
+
+# 构建阶段
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+
+WORKDIR /build
+
+# 复制根 pom.xml (父 POM)
+COPY pom.xml ./
+
+# 复制依赖配置
+COPY shared/pom.xml shared/
+COPY shared/shared-common/pom.xml shared/shared-common/
+COPY shared/shared-security/pom.xml shared/shared-security/
+COPY shared/shared-infrastructure/pom.xml shared/shared-infrastructure/
+COPY shared/shared-ai/pom.xml shared/shared-ai/
+COPY shared/shared-agent/pom.xml shared/shared-agent/
+
+COPY services/code-intelligence/pom.xml services/code-intelligence/
+COPY services/code-intelligence/ci-api/pom.xml services/code-intelligence/ci-api/
+
+# 下载依赖
+RUN cd shared && mvn dependency:go-offline -B
+
+# 复制源代码
+COPY shared shared/
+COPY services services/
+
+# 构建 shared 模块
+RUN mvn clean install -DskipTests -B -q -pl shared -am
+
+# 构建服务
+RUN mvn clean package -DskipTests -B -q -pl services/code-intelligence/ci-api -am
+
+# ============================================
+# 运行阶段
+# ============================================
+FROM eclipse-temurin:17-jre-alpine
+
+RUN addgroup -S spring && adduser -S spring -G spring
+WORKDIR /app
+
+# 复制jar包
+COPY --from=builder /build/services/code-intelligence/ci-api/target/*.jar app.jar
+
+# 创建日志目录
+RUN mkdir -p /var/log/app && chown -R spring:spring /var/log/app
+
+# 安装wget用于健康检查
+RUN apk add --no-cache wget
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=90s \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8081/actuator/health || exit 1
+
+# 切换用户
+USER spring:spring
+
+# JVM参数（更多内存用于AI推理）
+ENV JAVA_OPTS="-Xms192m -Xmx384m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app/"
+
+EXPOSE 8081
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

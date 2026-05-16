@@ -45,10 +45,10 @@ kafka:
 
 # 真实AI模型调用
 qwen:
-  api-key: sk-14bcb8044cb047afa50852c40aefeb57
+  api-key: ${QWEN_API_KEY:test-placeholder-key}
   api-url: https://dashscope.aliyuncs.com/compatible-mode/v1
   embedding-model: text-embedding-v4
-  chat-model: qwen-turbo-2025-04-28
+  chat-model: qwen-plus
 
 # 真实MinIO
 minio:

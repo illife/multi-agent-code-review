@@ -1,5 +1,6 @@
 package com.think.platform.gateway.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -7,6 +8,8 @@ import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * CORS Configuration for API Gateway
@@ -17,45 +20,47 @@ import java.util.Arrays;
 @Configuration
 public class CorsConfig {
 
+    @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:3000,http://localhost:3001,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5175,http://127.0.0.1:5176,https://codeview.top}")
+    private String allowedOrigins;
+
+    @Value("${cors.allowed-methods:GET,POST,PUT,DELETE,OPTIONS,PATCH}")
+    private String allowedMethods;
+
+    @Value("${cors.allowed-headers:Authorization,Content-Type,X-Requested-With,Accept,Origin,Access-Control-Request-Method,Access-Control-Request-Headers}")
+    private String allowedHeaders;
+
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();
 
-        // Allow credentials (cookies, authorization headers)
         corsConfig.setAllowCredentials(true);
 
-        // Allow frontend origins (development and production)
-        corsConfig.addAllowedOriginPattern("http://localhost:5173");
-        corsConfig.addAllowedOriginPattern("http://localhost:5174");
-        corsConfig.addAllowedOriginPattern("http://localhost:5175");
-        corsConfig.addAllowedOriginPattern("http://localhost:5176");
-        corsConfig.addAllowedOriginPattern("http://127.0.0.1:5173");
-        corsConfig.addAllowedOriginPattern("http://127.0.0.1:5174");
-        corsConfig.addAllowedOriginPattern("http://127.0.0.1:5175");
-        corsConfig.addAllowedOriginPattern("http://127.0.0.1:5176");
+        corsConfig.setAllowedOriginPatterns(parseCsv(allowedOrigins));
+        corsConfig.setAllowedMethods(parseCsv(allowedMethods));
+        corsConfig.setAllowedHeaders(parseCsv(allowedHeaders));
 
-        // Allow common headers
-        corsConfig.addAllowedHeader("*");
-
-        // Allow common HTTP methods
-        corsConfig.addAllowedMethod("*");
-
-        // Expose headers that frontend needs to read
         corsConfig.setExposedHeaders(Arrays.asList(
             "Authorization",
             "Content-Type",
-            "Access-Control-Allow-Origin",
-            "Access-Control-Allow-Credentials",
+            "X-User-Id",
+            "X-Username",
+            "X-User-Role",
             "X-Total-Count",
             "X-Page-Count"
         ));
 
-        // Max age for preflight requests (1 hour)
         corsConfig.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfig);
 
         return new CorsWebFilter(source);
+    }
+
+    private List<String> parseCsv(String value) {
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
     }
 }

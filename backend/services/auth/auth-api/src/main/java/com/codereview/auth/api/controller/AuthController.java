@@ -101,8 +101,8 @@ public class AuthController {
      * POST /api/auth/logout
      */
     @PostMapping("/logout")
-    public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
-        String refreshToken = ""; // TODO: 从请求中获取 refresh token
+    public Result<Void> logout(@RequestBody(required = false) RefreshTokenRequest request) {
+        String refreshToken = request != null ? request.getRefreshToken() : "";
         authService.logout(refreshToken);
         return Result.success();
     }

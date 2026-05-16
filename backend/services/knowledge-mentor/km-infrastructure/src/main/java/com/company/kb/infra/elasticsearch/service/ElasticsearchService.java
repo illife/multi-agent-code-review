@@ -116,6 +116,7 @@ public interface ElasticsearchService {
         private String title;
         private String fileName;
         private Long documentId;
+        private Integer chunkIndex; // 文档块序号
         private double rrfScore;
         private String highlight; // Elasticsearch原生高亮结果
 
@@ -133,6 +134,8 @@ public interface ElasticsearchService {
         public void setFileName(String fileName) { this.fileName = fileName; }
         public Long getDocumentId() { return documentId; }
         public void setDocumentId(Long documentId) { this.documentId = documentId; }
+        public Integer getChunkIndex() { return chunkIndex; }
+        public void setChunkIndex(Integer chunkIndex) { this.chunkIndex = chunkIndex; }
         public double getRrfScore() { return rrfScore; }
         public void setRrfScore(double rrfScore) { this.rrfScore = rrfScore; }
         public String getHighlight() { return highlight; }

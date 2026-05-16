@@ -24,6 +24,9 @@ buildNumber.properties
 .settings/
 bin/
 
+# Local agent/runtime state
+.agents/
+
 # BlueJ files
 *.ctxt
 
@@ -49,10 +52,17 @@ application-local.properties
 # Uploads
 uploads/
 
+# Local/private documentation
+docs/
+DOCKER_COMPOSE_GUIDE.md
+backend/CLEANUP_OPTIONS.md
+backend/MICROSERVICES_SETUP_COMPLETE.md
+
 # Frontend
 node_modules/
 dist/
 dist-ssr/
+frontend_dist/
 *.local
 
 # Environment
@@ -66,8 +76,10 @@ dist-ssr/
 # Database
 *.db
 *.sqlite
+db_backup.sql
 
 # Package Files
+jars/
 *.jar
 *.war
 *.nar
@@ -76,6 +88,25 @@ dist-ssr/
 *.zip
 *.tar.gz
 *.rar
+
+# Docker Compose variants kept locally only
+docker-compose.2c4g.yml
+docker-compose.8g.yml
+docker-compose.full.yml
+docker-compose.optimized.yml
+docker-compose.prod.yml
+docker-compose.low-resource.yml
+
+# Generated/temporary build metadata
+backend/effective-pom.xml
+backend/services/knowledge-mentor/km-infrastructure/cp.txt
+Dockerfile.runtime
+
+# Local scripts and ad hoc test utilities
+scripts/
+
+# Temporary duplicate configs
+nginx/nginx-fixed.conf
 
 # Temporary files
 *.tmp
@@ -101,4 +132,7 @@ test-docs/
 .claude/
 memory/
 test-*.txt
-prometheus.yml
+
+# Generated test reports
+scripts/*_report.json
+scripts/*results.json

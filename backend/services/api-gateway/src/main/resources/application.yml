@@ -19,7 +19,7 @@ spring:
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins:
+            allowedOriginPatterns:
               - http://localhost:5173
               - http://localhost:5174
               - http://localhost:5175
@@ -27,6 +27,7 @@ spring:
               - http://localhost:5177
               - http://localhost:3000
               - http://localhost:3001
+              - https://codeview.top
             allowedMethods:
               - GET
               - POST
@@ -35,7 +36,14 @@ spring:
               - OPTIONS
               - PATCH
               - HEAD
-            allowedHeaders: "*"
+            allowedHeaders:
+              - Authorization
+              - Content-Type
+              - X-Requested-With
+              - Accept
+              - Origin
+              - Access-Control-Request-Method
+              - Access-Control-Request-Headers
             allowCredentials: true
             maxAge: 3600
 
@@ -75,15 +83,15 @@ spring:
 services:
   endpoints:
     auth-service:
-      url: ${AUTH_SERVICE_URL:http://localhost:8083}
+      url: ${AUTH_SERVICE_URL:http://auth-api:8083}
     code-intelligence-service:
-      url: ${CODE_INTELLIGENCE_SERVICE_URL:http://localhost:8088}
+      url: ${CODE_INTELLIGENCE_SERVICE_URL:http://code-intelligence-api:8081}
     knowledge-mentor-service:
-      url: ${KNOWLEDGE_MENTOR_SERVICE_URL:http://localhost:8080}
+      url: ${KNOWLEDGE_MENTOR_SERVICE_URL:http://knowledge-mentor-api:8080}
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:7xC6H4acpIyLKfg1yKZzZZlbOrrbFhEQGIqh8kYhRfxtX+f7xWGyFcGyRjsfUVGHVm/dgysYInm33Bmidfc1mw==}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
 # Knife4j Configuration
@@ -132,20 +140,44 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
 
-# Management Configuration
+# Management & Monitoring Configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,gateway
+        include: health,info,metrics,prometheus,gateway
+      base-path: /actuator
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
     gateway:
       enabled: true
+    prometheus:
+      enabled: true
+    metrics:
+      enabled: true
   metrics:
-    export:
-      prometheus:
-        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+      sla:
+        http.server.requests: 100ms, 500ms, 1s, 2s
     tags:
       application: ${spring.application.name}
+      environment: ${SPRING_PROFILES_ACTIVE:default}
+    enable:
+      jvm: true
+      process: true
+      system: true
+      logback: true
+      tomcat: true
+      spring: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        step: 30s

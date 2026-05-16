@@ -1,0 +1,103 @@
+# Prometheus Configuration for Code Review AI Monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'code-review-ai-monitor'
+    environment: 'production'
+
+# Alertmanager configuration (optional, for future use)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+
+# Rule files (optional, for future use)
+# rule_files:
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # API Gateway Service
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['api-gateway:8082']
+        labels:
+          application: 'think-platform'
+          service: 'api-gateway'
+          environment: 'production'
+
+  # Auth Service
+  - job_name: 'auth-api'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['auth-api:8083']
+        labels:
+          application: 'think-platform'
+          service: 'auth-api'
+          environment: 'production'
+
+  # Knowledge Mentor Service
+  - job_name: 'knowledge-mentor-api'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['knowledge-mentor-api:8080']
+        labels:
+          application: 'think-platform'
+          service: 'knowledge-mentor-api'
+          environment: 'production'
+
+  # Code Intelligence Service
+  - job_name: 'code-intelligence-api'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['code-intelligence-api:8081']
+        labels:
+          application: 'think-platform'
+          service: 'code-intelligence-api'
+          environment: 'production'
+
+# Optional: Additional scrape configs for infrastructure
+# These require additional exporters to be deployed
+
+# - job_name: 'postgres-exporter'
+#   static_configs:
+#     - targets: ['postgres-exporter:9187']
+#       labels:
+#         service: 'postgres'
+
+# - job_name: 'redis-exporter'
+#   static_configs:
+#     - targets: ['redis-exporter:9121']
+#       labels:
+#         service: 'redis'
+
+# - job_name: 'elasticsearch-exporter'
+#   static_configs:
+#     - targets: ['elasticsearch-exporter:9114']
+#       labels:
+#         service: 'elasticsearch'
+
+# - job_name: 'kafka-exporter'
+#   static_configs:
+#     - targets: ['kafka-exporter:9308']
+#       labels:
+#         service: 'kafka'
+
+# - job_name: 'node-exporter'
+#   static_configs:
+#     - targets: ['node-exporter:9100']
+#       labels:
+#         service: 'system'

@@ -168,6 +168,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
                     searchHit.setTitle(hit.source().getTitle());
                     searchHit.setFileName(hit.source().getFileName());
                     searchHit.setDocumentId(hit.source().getDocumentId());
+                    searchHit.setChunkIndex(hit.source().getPosition());
                 }
 
                 // 处理高亮结果
@@ -385,6 +386,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
                     searchHit.setTitle(hit.source().getTitle());
                     searchHit.setFileName(hit.source().getFileName());
                     searchHit.setDocumentId(hit.source().getDocumentId());
+                    searchHit.setChunkIndex(hit.source().getPosition());
                 }
 
                 // 处理高亮结果
@@ -664,6 +666,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
                     searchHit.setTitle(hit.source().getTitle());
                     searchHit.setFileName(hit.source().getFileName());
                     searchHit.setDocumentId(hit.source().getDocumentId());
+                    searchHit.setChunkIndex(hit.source().getPosition());
                 }
 
                 // 处理高亮结果

@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
+import { api } from '../../services/api';
 
 /**
  * Document interface
@@ -91,30 +92,10 @@ export const fetchDocumentsAsync = createAsyncThunk<
   'documents/fetchDocumentsAsync',
   async ({ page = 0, size = 10, query = '' }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const params = new URLSearchParams({
-        page: page.toString(),
-        size: size.toString(),
+      const response = await api.get('/documents', {
+        params: { page, size, ...(query ? { query } : {}) },
       });
-
-      if (query) {
-        params.append('query', query);
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/documents?${params}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch documents');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       return {
         documents: data.data.content || [],
         pagination: {
@@ -141,7 +122,6 @@ export const uploadDocumentAsync = createAsyncThunk<
   'documents/uploadDocumentAsync',
   async ({ file, tags = [] }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', file);
 
@@ -149,20 +129,8 @@ export const uploadDocumentAsync = createAsyncThunk<
         tags.forEach((tag) => formData.append('tags', tag));
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/documents/upload`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Upload failed');
-      }
-
-      const data = await response.json();
+      const response = await api.post('/documents/upload', formData);
+      const data = response.data;
       return data.data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Upload failed');
@@ -181,21 +149,7 @@ export const deleteDocumentAsync = createAsyncThunk<
   'documents/deleteDocumentAsync',
   async (documentId, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/documents/${documentId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to delete document');
-      }
-
+      await api.delete(`/documents/${documentId}`);
       return documentId;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to delete document');
@@ -214,21 +168,8 @@ export const fetchDocumentByIdAsync = createAsyncThunk<
   'documents/fetchDocumentByIdAsync',
   async (documentId, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/documents/${documentId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch document');
-      }
-
-      const data = await response.json();
+      const response = await api.get(`/documents/${documentId}`);
+      const data = response.data;
       return data.data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch document');
@@ -247,24 +188,8 @@ export const updateDocumentTagsAsync = createAsyncThunk<
   'documents/updateDocumentTagsAsync',
   async ({ documentId, tags }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/documents/${documentId}/tags`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ tags }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update tags');
-      }
-
-      const data = await response.json();
+      const response = await api.put(`/documents/${documentId}/tags`, { tags });
+      const data = response.data;
       return data.data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to update tags');

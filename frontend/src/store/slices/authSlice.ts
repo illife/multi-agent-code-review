@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
+import { api } from '../../services/api';
 
 /**
  * User interface
@@ -47,24 +48,13 @@ export const loginAsync = createAsyncThunk<
   'auth/loginAsync',
   async ({ username, password }, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
-
-      const data = await response.json();
+      const response = await api.post('/auth/login', { username, password });
+      const data = response.data;
       const authResponse = data.data;
 
       // 后端返回的是 accessToken，需要转换为 token
       const token = authResponse.accessToken || authResponse.token;
+      const refreshToken = authResponse.refreshToken;
 
       const user: User = {
         id: authResponse.userId?.toString() || '',
@@ -75,6 +65,9 @@ export const loginAsync = createAsyncThunk<
 
       // Store token in localStorage
       localStorage.setItem('token', token);
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
       localStorage.setItem('user', JSON.stringify(user));
 
       return { user, token };
@@ -89,21 +82,16 @@ export const loginAsync = createAsyncThunk<
  */
 export const logoutAsync = createAsyncThunk<void, void, { state: RootState }>(
   'auth/logoutAsync',
-  async (_, _dispatch) => {
+  async () => {
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const refreshToken = localStorage.getItem('refreshToken');
+      await api.post('/auth/logout', { refreshToken });
     } catch (error) {
       // Continue with logout even if API call fails
       console.error('Logout API error:', error);
     } finally {
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     }
   }
@@ -125,20 +113,12 @@ export const fetchCurrentUserAsync = createAsyncThunk<
         throw new Error('No token found');
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch user');
-      }
-
-      const data = await response.json();
+      const response = await api.get('/auth/me');
+      const data = response.data;
       return data.data;
     } catch (error: any) {
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       return rejectWithValue(error.message || 'Failed to fetch user');
     }
@@ -161,6 +141,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.error = null;
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
     },
 
     /**

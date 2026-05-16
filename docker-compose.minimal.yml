@@ -1,0 +1,411 @@
+# ========================================
+# 2核8GB 完整版 - 修复所有问题
+# ========================================
+#
+# 已修复：
+# - 去除 Prometheus
+# - Redis 添加 healthcheck
+# - 修复 Xss 参数
+# - 合理的 JVM 内存配置
+#
+# 启动: docker compose -f docker-compose.minimal.yml up -d
+#
+# ========================================
+
+services:
+  # 核心中间件
+  postgres:
+    image: postgres:15.7-alpine
+    container_name: kb-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: multi_agent_platform
+      POSTGRES_USER: kb_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kb_user -d multi_agent_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  redis:
+    image: redis:7.2.5-alpine
+    container_name: kb-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 80M
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: kb-elasticsearch
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ELASTIC_PASSWORD=${ES_PASSWORD:?ES_PASSWORD is required}
+      - xpack.ml.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx512m"
+      - bootstrap.memory_lock=false
+      - "indices.fielddata.cache.size=20%"
+      - "indices.memory.index_buffer_size=20%"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -u elastic:$${ELASTIC_PASSWORD} -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: kb-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: kb-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_HEAP_OPTS: "-Xmx384M -Xms256M"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 4
+      KAFKA_LOG_SEGMENT_BYTES: 107374182
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - app-network
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  minio:
+    image: minio/minio:latest
+    container_name: kb-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  # 微服务
+  api-gateway:
+    image: eclipse-temurin:17-jre-alpine
+    container_name: kb-api-gateway
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AUTH_SERVICE_URL: http://auth-service:8083
+      CODE_INTELLIGENCE_SERVICE_URL: http://code-intelligence-service:8081
+      KNOWLEDGE_MENTOR_SERVICE_URL: http://knowledge-mentor-service:8080
+      JAVA_OPTS: >-
+        -Xms64m
+        -Xmx128m
+        -XX:+UseG1GC
+        -XX:MaxMetaspaceSize=96m
+        -Xss256k
+        -XX:MaxGCPauseMillis=200
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./jars/api-gateway.jar:/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app.jar"]
+    networks:
+      - app-network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  auth-service:
+    image: eclipse-temurin:17-jre-alpine
+    container_name: kb-auth-service
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JAVA_OPTS: >-
+        -Xms96m
+        -Xmx192m
+        -XX:+UseG1GC
+        -XX:MaxMetaspaceSize=96m
+        -Xss256k
+        -XX:MaxGCPauseMillis=200
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/multi_agent_platform
+      SPRING_DATASOURCE_USERNAME: kb_user
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./jars/auth-service.jar:/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app.jar"]
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    ports:
+      - "8083:8083"
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  knowledge-mentor-service:
+    image: eclipse-temurin:17-jre-alpine
+    container_name: kb-knowledge-mentor
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JAVA_OPTS: >-
+        -Xms128m
+        -Xmx256m
+        -XX:+UseG1GC
+        -XX:MaxMetaspaceSize=128m
+        -Xss256k
+        -XX:MaxGCPauseMillis=200
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/multi_agent_platform
+      SPRING_DATASOURCE_USERNAME: kb_user
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      ELASTICSEARCH_URIS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ES_PASSWORD:?ES_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+      QWEN_API_KEY: ${QWEN_API_KEY:?QWEN_API_KEY is required}
+    volumes:
+      - ./jars/knowledge-mentor-service.jar:/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app.jar"]
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  code-intelligence-service:
+    image: eclipse-temurin:17-jre-alpine
+    container_name: kb-code-intelligence
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SERVER_PORT: 8081
+      JAVA_OPTS: >-
+        -Xms128m
+        -Xmx256m
+        -XX:+UseG1GC
+        -XX:MaxMetaspaceSize=128m
+        -Xss256k
+        -XX:MaxGCPauseMillis=200
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/multi_agent_platform
+      SPRING_DATASOURCE_USERNAME: kb_user
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+      QWEN_API_KEY: ${QWEN_API_KEY:?QWEN_API_KEY is required}
+    volumes:
+      - ./jars/code-intelligence-service.jar:/app.jar:ro
+    command: ["sh", "-c", "java $$JAVA_OPTS -jar /app.jar"]
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 150s
+    ports:
+      - "8081:8081"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # 前端
+  nginx:
+    image: nginx:alpine
+    container_name: kb-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend_dist:/usr/share/nginx/html:ro
+    networks:
+      - app-network
+    depends_on:
+      - api-gateway
+    deploy:
+      resources:
+        limits:
+          memory: 48M
+
+# 数据卷
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
+  minio_data:
+    driver: local
+  frontend_dist:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
+
+# ========================================
+# 内存预算 (总计 ~3.4GB)
+# ========================================
+# PostgreSQL:         512M
+# Redis:               80M
+# Elasticsearch:      640M (堆512M)
+# Zookeeper:          192M
+# Kafka:              512M (堆384M)
+# MinIO:                96M
+# API Gateway:        256M (堆128M)
+# Auth Service:       384M (堆192M)
+# Knowledge Mentor:   512M (堆256M) ← 增加内存
+# Code Intelligence:  512M (堆256M) ← 增加内存
+# Nginx:                48M
+# ----------------------------------------
+# 总计:              ~3.4GB
+# 系统预留:          ~3.8GB (充裕！)
+# ========================================

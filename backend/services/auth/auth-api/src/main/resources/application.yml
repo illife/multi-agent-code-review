@@ -11,9 +11,9 @@ spring:
       - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/multi_agent_platform
-    username: kb_user
-    password: kb_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/multi_agent_platform}
+    username: ${SPRING_DATASOURCE_USERNAME:kb_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:kb_password}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -30,9 +30,10 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
-      timeout: 60000ms
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:60000ms}
       lettuce:
         pool:
           max-active: 8
@@ -53,9 +54,9 @@ spring:
 
 # JWT Configuration
 jwt:
-  secret: 7xC6H4acpIyLKfg1yKZzZZlbOrrbFhEQGIqh8kYhRfxtX+f7xWGyFcGyRjsfUVGHVm/dgysYInm33Bmidfc1mw==
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
-  refresh-expiration: 604800000  # 7 days (in milliseconds)
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days (in milliseconds)
 
 # Auth Service Configuration
 auth:
@@ -72,17 +73,44 @@ logging:
   pattern:
     console: '%d{yyyy-MM-dd HH:mm:ss} - %msg%n'
 
-# Actuator
+# Actuator & Monitoring Configuration
 management:
-  server:
-    port: 8084
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
+      base-path: /actuator
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+        step: 30s
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+      sla:
+        http.server.requests: 100ms, 500ms, 1s, 2s
+    tags:
+      application: ${spring.application.name}
+      environment: ${SPRING_PROFILES_ACTIVE:default}
+    enable:
+      jvm: true
+      process: true
+      system: true
+      logback: true
+      tomcat: true
+      spring: true
 
 # Knife4j API Documentation Configuration
 knife4j:

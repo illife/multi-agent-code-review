@@ -1,9 +1,14 @@
 server:
-  port: 8088
+  port: ${SERVER_PORT:8081}
 
 spring:
   application:
     name: codereview-ai
+
+  # 禁用邮件自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/multi_agent_platform}
@@ -23,7 +28,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
       show-sql: false
     properties:
       hibernate:
@@ -71,9 +76,9 @@ spring:
 
 # Qwen AI Configuration
 qwen:
-  api-key: ${QWEN_API_KEY:sk-placeholder-key-please-set-env-var}
+  api-key: ${QWEN_API_KEY:placeholder-qwen-api-key}
   api-url: ${QWEN_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
-  chat-model: ${QWEN_CHAT_MODEL:qwen-turbo}
+  chat-model: ${QWEN_CHAT_MODEL:qwen-plus}
   max-tokens: ${QWEN_MAX_TOKENS:8000}
   temperature: ${QWEN_TEMPERATURE:0.7}
   # Rate limiting to prevent 429 errors
@@ -121,7 +126,7 @@ kafka:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:7xC6H4acpIyLKfg1yKZzZZlbOrrbFhEQGIqh8kYhRfxtX+f7xWGyFcGyRjsfUVGHVm/dgysYInm33Bmidfc1mw==}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
 # Logging
@@ -134,22 +139,47 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
 
-# Actuator
+# Actuator & Monitoring Configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
-  metrics:
-    tags:
-      application: ${spring.application.name}
+        include: health,info,metrics,prometheus
+      base-path: /actuator
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+    metrics:
+      enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        spring.kafka.listener: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+      sla:
+        http.server.requests: 100ms, 500ms, 1s, 2s
+    tags:
+      application: ${spring.application.name}
+      environment: ${SPRING_PROFILES_ACTIVE:default}
+    enable:
+      jvm: true
+      process: true
+      system: true
+      logback: true
+      tomcat: true
+      spring: true
+      kafka: true
   prometheus:
     metrics:
       export:
         enabled: true
+        step: 30s
 
 # Teaching System Configuration
 teaching:

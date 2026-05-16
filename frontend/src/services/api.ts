@@ -1,12 +1,12 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8082/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 // Create axios instance
-// Note: baseURL includes /api, so service paths should NOT include /api prefix
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -33,13 +33,17 @@ api.interceptors.response.use(
     const originalRequest = error.config
 
     // Handle 401 Unauthorized - try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true
 
       try {
         const refreshToken = localStorage.getItem('refreshToken')
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken })
+          const response = await axios.post(
+            `${API_BASE_URL}/auth/refresh`,
+            { refreshToken },
+            { withCredentials: true }
+          )
 
           const { accessToken } = response.data.data
           localStorage.setItem('token', accessToken)
@@ -48,13 +52,13 @@ api.interceptors.response.use(
           return api(originalRequest)
         }
       } catch (refreshError) {
-        // Refresh token failed, redirect to login
-        localStorage.removeItem('token')
-        localStorage.removeItem('refreshToken')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
         return Promise.reject(refreshError)
       }
+
+      localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
     }
 
     return Promise.reject(error)

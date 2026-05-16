@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
+import { api } from '../../services/api';
 
 /**
  * Chat message interface
@@ -72,22 +73,8 @@ export const askQuestionAsync = createAsyncThunk<
   'qa/askQuestionAsync',
   async ({ question, sessionId }, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/qa/ask`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ question, sessionId }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to ask question');
-      }
-
-      const data = await response.json();
+      const response = await api.post('/qa/ask', { question, sessionId });
+      const data = response.data;
       return {
         answer: data.data.answer,
         sources: data.data.sources || [],
@@ -110,21 +97,8 @@ export const getChatHistoryAsync = createAsyncThunk<
   'qa/getChatHistoryAsync',
   async (sessionId, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/qa/history/${sessionId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch chat history');
-      }
-
-      const data = await response.json();
+      const response = await api.get(`/qa/history/${sessionId}`);
+      const data = response.data;
       return data.data;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch chat history');
@@ -143,21 +117,7 @@ export const deleteSessionAsync = createAsyncThunk<
   'qa/deleteSessionAsync',
   async (sessionId, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/qa/session/${sessionId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to delete session');
-      }
-
+      await api.delete(`/qa/session/${sessionId}`);
       return sessionId;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to delete session');

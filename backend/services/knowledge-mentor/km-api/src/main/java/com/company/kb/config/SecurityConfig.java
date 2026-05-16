@@ -1,6 +1,7 @@
 package com.company.kb.config;
 
 import com.think.platform.shared.security.GatewayAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -10,6 +11,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import java.util.Arrays;
 
 /**
  * Security Configuration for Knowledge Mentor Service
@@ -23,6 +26,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    @Value("${app.auth.bypass-patterns:}")
+    private String[] authBypassPatterns;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -52,19 +58,27 @@ public class SecurityConfig {
                 .addFilterBefore(gatewayAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
                 // Configure authorization rules
-                .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        // TEMPORARY: Allow document endpoints for local testing
-                        .requestMatchers("/documents/**").permitAll()
-                        // TEMPORARY: Allow search endpoints for local testing
-                        .requestMatchers("/search/**").permitAll()
+                .authorizeHttpRequests(auth -> {
+                    String[] configuredBypassPatterns = Arrays.stream(authBypassPatterns)
+                            .map(String::trim)
+                            .filter(pattern -> !pattern.isEmpty())
+                            .toArray(String[]::new);
 
-                        // All other requests require authentication (from Gateway)
-                        .anyRequest().authenticated()
-                );
+                    if (configuredBypassPatterns.length > 0) {
+                        auth.requestMatchers(configuredBypassPatterns).permitAll();
+                    }
+
+                    auth
+                            // Public endpoints
+                            .requestMatchers("/actuator/**").permitAll()
+                            .requestMatchers("/error").permitAll()
+                            .requestMatchers("/ws/**").permitAll()
+                            // Always allow CORS OPTIONS preflight requests
+                            .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+
+                            // All other requests require authentication (from Gateway)
+                            .anyRequest().authenticated();
+                });
 
         return http.build();
     }

@@ -97,7 +97,7 @@ const SearchPage: React.FC = () => {
     const data = results.map((r) => ({
       document: r.fileName,
       chunk: r.chunkIndex,
-      content: r.textContent,
+      content: r.content,
       score: r.score,
     }))
 
@@ -276,7 +276,7 @@ const SearchPage: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3">
-                      {result.highlight ? highlightMatch(result.highlight, query) : result.textContent}
+                      {result.highlight ? highlightMatch(result.highlight, query) : result.content}
                     </p>
                   </CardContent>
                 </Card>

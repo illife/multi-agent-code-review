@@ -8,6 +8,9 @@ FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
 WORKDIR /build
 
+# 复制根 pom.xml（父POM）
+COPY pom.xml ./
+
 # 复制 pom.xml 并下载依赖（利用Docker缓存）
 COPY shared/pom.xml shared/
 COPY shared/shared-common/pom.xml shared/shared-common/
@@ -16,7 +19,6 @@ COPY shared/shared-infrastructure/pom.xml shared/shared-infrastructure/
 COPY shared/shared-ai/pom.xml shared/shared-ai/
 COPY shared/shared-agent/pom.xml shared/shared-agent/
 
-COPY services/pom.xml services/
 COPY services/auth/pom.xml services/auth/
 COPY services/api-gateway/pom.xml services/api-gateway/
 COPY services/knowledge-mentor/pom.xml services/knowledge-mentor/
@@ -45,16 +47,112 @@ COPY --from=builder /build/services/api-gateway/target/*.jar app.jar
 # 创建日志目录
 RUN mkdir -p /var/log/app && chown -R spring:spring /var/log/app
 
+# 安装wget用于健康检查
+RUN apk add --no-cache wget
+
 # 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8082/actuator/health || exit 1
 
 # 切换用户
 USER spring:spring
 
 # JVM参数（针对低内存优化）
-ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app/"
+ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app/"
 
 EXPOSE 8082
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+
+# ============================================
+# 运行阶段 - Auth Service
+# ============================================
+FROM eclipse-temurin:17-jre-alpine AS auth-service
+
+RUN addgroup -S spring && adduser -S spring -G spring
+WORKDIR /app
+
+# 复制jar包
+COPY --from=builder /build/services/auth/auth-api/target/*.jar app.jar
+
+# 创建日志目录
+RUN mkdir -p /var/log/app && chown -R spring:spring /var/log/app
+
+# 安装wget用于健康检查
+RUN apk add --no-cache wget
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8084/actuator/health || exit 1
+
+# 切换用户
+USER spring:spring
+
+# JVM参数
+ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app/"
+
+EXPOSE 8083 8084
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+
+# ============================================
+# 运行阶段 - Knowledge Mentor
+# ============================================
+FROM eclipse-temurin:17-jre-alpine AS knowledge-mentor
+
+RUN addgroup -S spring && adduser -S spring -G spring
+WORKDIR /app
+
+# 复制jar包
+COPY --from=builder /build/services/knowledge-mentor/km-api/target/*.jar app.jar
+
+# 创建日志目录
+RUN mkdir -p /var/log/app && chown -R spring:spring /var/log/app
+
+# 安装wget用于健康检查
+RUN apk add --no-cache wget
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=90s \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+
+# 切换用户
+USER spring:spring
+
+# JVM参数（更多内存用于ES查询）
+ENV JAVA_OPTS="-Xms192m -Xmx384m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app/"
+
+EXPOSE 8080
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+
+# ============================================
+# 运行阶段 - Code Intelligence
+# ============================================
+FROM eclipse-temurin:17-jre-alpine AS code-intelligence
+
+RUN addgroup -S spring && adduser -S spring -G spring
+WORKDIR /app
+
+# 复制jar包
+COPY --from=builder /build/services/code-intelligence/ci-api/target/*.jar app.jar
+
+# 创建日志目录
+RUN mkdir -p /var/log/app && chown -R spring:spring /var/log/app
+
+# 安装wget用于健康检查
+RUN apk add --no-cache wget
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=90s \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8088/actuator/health || exit 1
+
+# 切换用户
+USER spring:spring
+
+# JVM参数（更多内存用于AI推理）
+ENV JAVA_OPTS="-Xms192m -Xmx384m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/app/"
+
+EXPOSE 8088
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

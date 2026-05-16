@@ -70,7 +70,7 @@ export interface SearchHitDto {
   id: string
   documentId: number
   chunkIndex: number
-  textContent: string
+  content: string
   title: string
   fileName: string
   fileType: string
