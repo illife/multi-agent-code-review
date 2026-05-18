@@ -1,0 +1,17 @@
+.git/
+.agents/
+.claude/
+.idea/
+.env
+docs/
+scripts/
+logs/
+db_backup.sql
+frontend/node_modules/
+frontend/dist/
+frontend_dist/
+jars/
+**/target/
+**/*.log
+*.zip
+Dockerfile.runtime

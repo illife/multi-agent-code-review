@@ -83,11 +83,11 @@ spring:
 services:
   endpoints:
     auth-service:
-      url: ${AUTH_SERVICE_URL:http://auth-api:8083}
+      url: ${AUTH_SERVICE_URL:http://localhost:8083}
     code-intelligence-service:
-      url: ${CODE_INTELLIGENCE_SERVICE_URL:http://code-intelligence-api:8081}
+      url: ${CODE_INTELLIGENCE_SERVICE_URL:http://localhost:8081}
     knowledge-mentor-service:
-      url: ${KNOWLEDGE_MENTOR_SERVICE_URL:http://knowledge-mentor-api:8080}
+      url: ${KNOWLEDGE_MENTOR_SERVICE_URL:http://localhost:8080}
 
 # JWT Configuration
 jwt:

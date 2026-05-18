@@ -23,9 +23,16 @@ public class KafkaProducerConfig {
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
 
+    @Value("${kafka.producer.compression-type:${spring.kafka.producer.compression-type:none}}")
+    private String compressionType;
+
     @Bean
     public Map<String, Object> producerConfigs() {
         Map<String, Object> config = new HashMap<>();
+        String selectedCompressionType = compressionType == null || compressionType.isBlank()
+                ? "none"
+                : compressionType.trim();
+
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -34,7 +41,7 @@ public class KafkaProducerConfig {
         config.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
         config.put(ProducerConfig.LINGER_MS_CONFIG, 10);
         config.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
-        config.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        config.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, selectedCompressionType);
         return config;
     }
 

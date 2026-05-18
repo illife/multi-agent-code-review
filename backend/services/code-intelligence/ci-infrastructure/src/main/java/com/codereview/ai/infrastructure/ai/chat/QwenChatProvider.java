@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Qwen AI Chat Provider Implementation
@@ -50,6 +51,9 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
     @Value("${qwen.chat-model}")
     private String chatModel;
 
+    @Value("${qwen.chat-models:}")
+    private String chatModels;
+
     @Value("${qwen.max-tokens:2000}")
     private int maxTokens;
 
@@ -68,6 +72,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
     private final WebClient.Builder webClientBuilder = WebClient.builder();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
+    private List<String> chatModelPool = List.of();
 
     // Rate limiter to prevent 429 errors
     private Semaphore rateLimiter;
@@ -79,16 +84,21 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
     @PostConstruct
     public void init() {
         this.rateLimiter = new Semaphore(maxConcurrentRequests);
+        this.chatModelPool = parseModelPool(chatModels);
         log.info("===================================================");
         log.info("QwenChatProvider Configuration:");
         log.info("  API URL: {}", apiUrl);
         log.info("  Chat Model: {}", chatModel);
+        log.info("  Chat Model Pool: {}", chatModelPool.isEmpty() ? "disabled" : chatModelPool);
+        if (!chatModelPool.isEmpty()) {
+            log.info("  Non-streaming Chat Model Pool: {}", compatibleModels(false));
+        }
         log.info("  Max Tokens: {}", maxTokens);
         log.info("  Temperature: {}", temperature);
         log.info("  Max Concurrent Requests: {}", maxConcurrentRequests);
         log.info("  Retry Max Attempts: {}", retryMaxAttempts);
         log.info("  Retry Initial Delay: {}ms", retryInitialDelayMs);
-        log.info("  API Key: {}...", apiKey != null ? apiKey.substring(0, Math.min(10, apiKey.length())) + "***" : "NULL");
+        log.info("  API Key Configured: {}", apiKey != null && !apiKey.isBlank());
         log.info("===================================================");
     }
 
@@ -442,8 +452,9 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
             List<ChatProvider.ToolDefinition> tools) {
 
         ChatRequest request = new ChatRequest();
-        request.setModel(chatModel);
+        request.setModel(selectChatModel(false));
         request.setStream(false);
+        request.setEnableThinking(false);
         request.setTemperature(temperature);
         request.setMaxTokens(maxTokens);
         request.setMessages(convertToRequestMessages(messages));
@@ -602,8 +613,9 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
 
     private ChatRequest buildChatRequest(String question, String context, boolean stream) {
         ChatRequest request = new ChatRequest();
-        request.setModel(chatModel);
+        request.setModel(selectChatModel(stream));
         request.setStream(stream);
+        request.setEnableThinking(false);
         request.setTemperature(temperature);
         request.setMaxTokens(maxTokens);
 
@@ -656,6 +668,43 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
 
     // ========================================================================
 
+    private List<String> parseModelPool(String rawModels) {
+        if (rawModels == null || rawModels.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(rawModels.split(","))
+                .map(String::trim)
+                .filter(model -> !model.isEmpty())
+                .distinct()
+                .toList();
+    }
+
+    private String selectChatModel(boolean stream) {
+        List<String> candidates = compatibleModels(stream);
+        if (candidates.isEmpty()) {
+            return chatModel;
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+    }
+
+    private List<String> compatibleModels(boolean stream) {
+        return chatModelPool.stream()
+                .filter(model -> supportsChatMode(model, stream))
+                .toList();
+    }
+
+    private boolean supportsChatMode(String model, boolean stream) {
+        if (model == null) {
+            return false;
+        }
+        String normalized = model.trim().toLowerCase();
+        if (normalized.contains("ocr")) {
+            return false;
+        }
+        return stream || !normalized.equals("glm-4.5-air");
+    }
+
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public static class ChatRequest {
         private String model;
@@ -664,6 +713,8 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
         private double temperature;
         @JsonProperty("max_tokens")
         private int maxTokens;
+        @JsonProperty("enable_thinking")
+        private Boolean enableThinking;
         private List<Map<String, Object>> tools;
 
         public String getModel() { return model; }
@@ -680,6 +731,9 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
 
         public int getMaxTokens() { return maxTokens; }
         public void setMaxTokens(int maxTokens) { this.maxTokens = maxTokens; }
+
+        public Boolean getEnableThinking() { return enableThinking; }
+        public void setEnableThinking(Boolean enableThinking) { this.enableThinking = enableThinking; }
 
         public List<Map<String, Object>> getTools() { return tools; }
         public void setTools(List<Map<String, Object>> tools) { this.tools = tools; }

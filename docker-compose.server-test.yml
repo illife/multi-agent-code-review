@@ -1,0 +1,269 @@
+services:
+  postgres:
+    image: postgres:15.7-alpine
+    container_name: kb-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-multi_agent_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-kb_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kb-network
+
+  redis:
+    image: redis:7.2.5-alpine
+    container_name: kb-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kb-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: kb-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ELASTIC_PASSWORD=${ES_PASSWORD:?ES_PASSWORD is required}
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - cluster.name=knowledge-base-cluster
+      - node.name=kb-node-1
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -u elastic:$${ELASTIC_PASSWORD} -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - kb-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: kb-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_MAX_SESSION_TIMEOUT: 60000
+      KAFKA_HEAP_OPTS: "-Xmx128M -Xms64M"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - kb-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: kb-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_NAMES: PLAINTEXT
+      KAFKA_HEAP_OPTS: "-Xmx384M -Xms256M"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 24
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - kb-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: kb-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - kb-network
+
+  api-gateway:
+    image: ${GATEWAY_IMAGE:?GATEWAY_IMAGE is required}
+    container_name: kb-api-gateway
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JAVA_OPTS: "-Xms64m -Xmx192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      AUTH_SERVICE_URL: http://auth-api:8083
+      CODE_INTELLIGENCE_SERVICE_URL: http://code-intelligence-api:8081
+      KNOWLEDGE_MENTOR_SERVICE_URL: http://knowledge-mentor-api:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - kb-network
+
+  auth-api:
+    image: ${AUTH_IMAGE:?AUTH_IMAGE is required}
+    container_name: kb-auth-api
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JAVA_OPTS: "-Xms96m -Xmx256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-multi_agent_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-kb_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kb-network
+
+  knowledge-mentor-api:
+    image: ${KNOWLEDGE_IMAGE:?KNOWLEDGE_IMAGE is required}
+    container_name: kb-knowledge-mentor-api
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JAVA_OPTS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-multi_agent_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-kb_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      ELASTICSEARCH_URIS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ES_PASSWORD:?ES_PASSWORD is required}
+      ELASTICSEARCH_ANALYZER: ${ELASTICSEARCH_ANALYZER:-standard}
+      ELASTICSEARCH_SEARCH_ANALYZER: ${ELASTICSEARCH_SEARCH_ANALYZER:-standard}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+      QWEN_API_KEY: ${QWEN_API_KEY:?QWEN_API_KEY is required}
+      QWEN_CHAT_MODEL: ${QWEN_CHAT_MODEL:-qwen-plus-0112}
+      QWEN_CHAT_MODELS: ${QWEN_CHAT_MODELS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - kb-network
+
+  code-intelligence-api:
+    image: ${CODE_IMAGE:?CODE_IMAGE is required}
+    container_name: kb-code-intelligence-api
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SERVER_PORT: 8081
+      JAVA_OPTS: "-Xms128m -Xmx384m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      ELASTICSEARCH_URIS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ES_PASSWORD:?ES_PASSWORD is required}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-multi_agent_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-kb_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      QWEN_API_KEY: ${QWEN_API_KEY:?QWEN_API_KEY is required}
+      QWEN_CHAT_MODEL: ${QWEN_CHAT_MODEL:-qwen-plus-0112}
+      QWEN_CHAT_MODELS: ${QWEN_CHAT_MODELS:-}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_PRODUCER_COMPRESSION_TYPE: ${KAFKA_PRODUCER_COMPRESSION_TYPE:-none}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - kb-network
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
+    container_name: kb-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - kb-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  es_data:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
+  minio_data:
+
+networks:
+  kb-network:
+    driver: bridge

@@ -1,0 +1,201 @@
+name: Deploy Server Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  APP_DIR: /root/think
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-deploy:
+    name: Build images and deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare image names
+        id: images
+        shell: bash
+        run: |
+          OWNER_LC="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          REPO_LC="$(basename "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          PREFIX="${REGISTRY}/${OWNER_LC}/${REPO_LC}"
+          TAG="${GITHUB_SHA::12}"
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "gateway=${PREFIX}-api-gateway:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "auth=${PREFIX}-auth-api:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "knowledge=${PREFIX}-knowledge-mentor-api:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "code=${PREFIX}-code-intelligence-api:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${PREFIX}-frontend:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API Gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.gateway
+          push: true
+          tags: ${{ steps.images.outputs.gateway }}
+          cache-from: type=gha,scope=api-gateway
+          cache-to: type=gha,mode=max,scope=api-gateway
+
+      - name: Build and push Auth API
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.auth
+          push: true
+          tags: ${{ steps.images.outputs.auth }}
+          cache-from: type=gha,scope=auth-api
+          cache-to: type=gha,mode=max,scope=auth-api
+
+      - name: Build and push Knowledge Mentor API
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.knowledge-mentor
+          push: true
+          tags: ${{ steps.images.outputs.knowledge }}
+          cache-from: type=gha,scope=knowledge-mentor-api
+          cache-to: type=gha,mode=max,scope=knowledge-mentor-api
+
+      - name: Build and push Code Intelligence API
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.code-intelligence
+          push: true
+          tags: ${{ steps.images.outputs.code }}
+          cache-from: type=gha,scope=code-intelligence-api
+          cache-to: type=gha,mode=max,scope=code-intelligence-api
+
+      - name: Build and push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: true
+          tags: ${{ steps.images.outputs.frontend }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${{ secrets.SERVER_PORT || '22' }}" "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload deployment files
+        shell: bash
+        run: |
+          SSH_TARGET="${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}"
+          SSH_PORT="${{ secrets.SERVER_PORT || '22' }}"
+
+          ssh -p "$SSH_PORT" "$SSH_TARGET" "mkdir -p '${APP_DIR}' '${APP_DIR}/scripts'"
+          scp -P "$SSH_PORT" docker-compose.server-test.yml "$SSH_TARGET:${APP_DIR}/docker-compose.server-test.yml"
+          scp -P "$SSH_PORT" .github/deploy/server-deploy.sh "$SSH_TARGET:${APP_DIR}/scripts/server-deploy.sh"
+          ssh -p "$SSH_PORT" "$SSH_TARGET" "chmod +x '${APP_DIR}/scripts/server-deploy.sh'"
+
+      - name: Write server environment
+        shell: bash
+        env:
+          GATEWAY_IMAGE: ${{ steps.images.outputs.gateway }}
+          AUTH_IMAGE: ${{ steps.images.outputs.auth }}
+          KNOWLEDGE_IMAGE: ${{ steps.images.outputs.knowledge }}
+          CODE_IMAGE: ${{ steps.images.outputs.code }}
+          FRONTEND_IMAGE: ${{ steps.images.outputs.frontend }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          QWEN_CHAT_MODEL: ${{ secrets.QWEN_CHAT_MODEL }}
+          QWEN_CHAT_MODELS: ${{ secrets.QWEN_CHAT_MODELS }}
+          ELASTICSEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_ANALYZER }}
+          ELASTICSEARCH_SEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_SEARCH_ANALYZER }}
+        run: |
+          python3 - <<'PY'
+          import os
+
+          keys = [
+              "GATEWAY_IMAGE",
+              "AUTH_IMAGE",
+              "KNOWLEDGE_IMAGE",
+              "CODE_IMAGE",
+              "FRONTEND_IMAGE",
+              "POSTGRES_PASSWORD",
+              "REDIS_PASSWORD",
+              "ES_PASSWORD",
+              "JWT_SECRET",
+              "MINIO_ACCESS_KEY",
+              "MINIO_SECRET_KEY",
+              "QWEN_API_KEY",
+              "QWEN_CHAT_MODEL",
+              "QWEN_CHAT_MODELS",
+              "ELASTICSEARCH_ANALYZER",
+              "ELASTICSEARCH_SEARCH_ANALYZER",
+          ]
+
+          def quote(value: str) -> str:
+              return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+          with open(".deploy.env", "w", encoding="utf-8") as f:
+              f.write("POSTGRES_DB=multi_agent_platform\n")
+              f.write("POSTGRES_USER=kb_user\n")
+              for key in keys:
+                  value = os.environ.get(key, "")
+                  if value:
+                      f.write(f"{key}={quote(value)}\n")
+              f.write("KAFKA_PRODUCER_COMPRESSION_TYPE=none\n")
+          PY
+
+          SSH_TARGET="${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}"
+          SSH_PORT="${{ secrets.SERVER_PORT || '22' }}"
+          scp -P "$SSH_PORT" .deploy.env "$SSH_TARGET:${APP_DIR}/.env"
+
+      - name: Login GHCR on server
+        shell: bash
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          if [ -n "$GHCR_USERNAME" ] && [ -n "$GHCR_TOKEN" ]; then
+            SSH_TARGET="${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}"
+            SSH_PORT="${{ secrets.SERVER_PORT || '22' }}"
+            printf '%s' "$GHCR_TOKEN" | ssh -p "$SSH_PORT" "$SSH_TARGET" \
+              "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
+          else
+            echo "GHCR server login skipped; expecting public packages or existing docker login."
+          fi
+
+      - name: Deploy on server
+        shell: bash
+        run: |
+          SSH_TARGET="${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}"
+          SSH_PORT="${{ secrets.SERVER_PORT || '22' }}"
+          ssh -p "$SSH_PORT" "$SSH_TARGET" "APP_DIR='${APP_DIR}' '${APP_DIR}/scripts/server-deploy.sh'"

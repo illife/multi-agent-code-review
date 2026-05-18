@@ -1,0 +1,9 @@
+**/target/
+**/*.log
+effective-pom.xml
+backend.log
+services/knowledge-mentor/km-infrastructure/cp.txt
+services/*/start.bat
+start-*.bat
+start-*.sh
+scripts/

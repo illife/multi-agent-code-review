@@ -54,6 +54,11 @@ spring:
           max-idle: 8
           min-idle: 0
 
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
+    username: ${ELASTICSEARCH_USERNAME:}
+    password: ${ELASTICSEARCH_PASSWORD:}
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9093}
     consumer:
@@ -70,6 +75,7 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      compression-type: ${KAFKA_PRODUCER_COMPRESSION_TYPE:none}
     listener:
       # Manual acknowledgment mode
       ack-mode: manualimmediate
@@ -78,7 +84,8 @@ spring:
 qwen:
   api-key: ${QWEN_API_KEY:placeholder-qwen-api-key}
   api-url: ${QWEN_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
-  chat-model: ${QWEN_CHAT_MODEL:qwen-plus}
+  chat-model: ${QWEN_CHAT_MODEL:qwen-plus-0112}
+  chat-models: ${QWEN_CHAT_MODELS:}
   max-tokens: ${QWEN_MAX_TOKENS:8000}
   temperature: ${QWEN_TEMPERATURE:0.7}
   # Rate limiting to prevent 429 errors
@@ -123,6 +130,8 @@ minio:
 kafka:
   topic:
     code-review: code-review-processing
+  producer:
+    compression-type: ${KAFKA_PRODUCER_COMPRESSION_TYPE:none}
 
 # JWT Configuration
 jwt:

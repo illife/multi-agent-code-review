@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 千问对话生成提供商
@@ -32,6 +34,9 @@ public class QwenChatProvider implements ChatProvider {
     @Value("${qwen.chat-model}")
     private String chatModel;
 
+    @Value("${qwen.chat-models:}")
+    private String chatModels;
+
     @Value("${qwen.max-tokens:2000}")
     private int maxTokens;
 
@@ -40,6 +45,16 @@ public class QwenChatProvider implements ChatProvider {
 
     private final WebClient.Builder webClientBuilder = WebClient.builder();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private List<String> chatModelPool = List.of();
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        this.chatModelPool = parseModelPool(chatModels);
+        log.info("Qwen chat model pool: {}", chatModelPool.isEmpty() ? "disabled" : chatModelPool);
+        if (!chatModelPool.isEmpty()) {
+            log.info("Qwen non-streaming chat model pool: {}", compatibleModels(false));
+        }
+    }
 
     @Override
     public String generateAnswer(String question, String context) throws Exception {
@@ -143,7 +158,7 @@ public class QwenChatProvider implements ChatProvider {
      */
     private Map<String, Object> buildChatRequest(String question, String context, boolean stream) {
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", chatModel);
+        requestBody.put("model", selectChatModel(stream));
 
         List<Map<String, String>> messages = new ArrayList<>();
 
@@ -164,6 +179,7 @@ public class QwenChatProvider implements ChatProvider {
         requestBody.put("max_tokens", maxTokens);
         requestBody.put("temperature", temperature);
         requestBody.put("stream", stream);
+        requestBody.put("enable_thinking", false);
 
         return requestBody;
     }
@@ -191,5 +207,42 @@ public class QwenChatProvider implements ChatProvider {
         prompt.append("\n\n");
         prompt.append("请根据上下文信息回答用户问题。");
         return prompt.toString();
+    }
+
+    private List<String> parseModelPool(String rawModels) {
+        if (rawModels == null || rawModels.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(rawModels.split(","))
+            .map(String::trim)
+            .filter(model -> !model.isEmpty())
+            .distinct()
+            .toList();
+    }
+
+    private String selectChatModel(boolean stream) {
+        List<String> candidates = compatibleModels(stream);
+        if (candidates.isEmpty()) {
+            return chatModel;
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+    }
+
+    private List<String> compatibleModels(boolean stream) {
+        return chatModelPool.stream()
+            .filter(model -> supportsChatMode(model, stream))
+            .toList();
+    }
+
+    private boolean supportsChatMode(String model, boolean stream) {
+        if (model == null) {
+            return false;
+        }
+        String normalized = model.trim().toLowerCase();
+        if (normalized.contains("ocr")) {
+            return false;
+        }
+        return stream || !normalized.equals("glm-4.5-air");
     }
 }

@@ -10,9 +10,11 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Qwen AI Provider (通义千问)
@@ -33,6 +35,9 @@ public class QwenProvider implements LlmProvider {
     @Value("${qwen.chat-model:qwen-turbo}")
     private String chatModel;
 
+    @Value("${qwen.chat-models:}")
+    private String chatModels;
+
     @Value("${qwen.embedding-model:text-embedding-v4}")
     private String embeddingModel;
 
@@ -44,11 +49,21 @@ public class QwenProvider implements LlmProvider {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private List<String> chatModelPool = List.of();
 
     public QwenProvider() {
         this.webClient = WebClient.builder()
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
                 .build();
+    }
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        this.chatModelPool = parseModelPool(chatModels);
+        log.info("Qwen shared chat model pool: {}", chatModelPool.isEmpty() ? "disabled" : chatModelPool);
+        if (!chatModelPool.isEmpty()) {
+            log.info("Qwen shared non-streaming chat model pool: {}", compatibleNonStreamingModels());
+        }
     }
 
     @Override
@@ -142,9 +157,10 @@ public class QwenProvider implements LlmProvider {
 
     private Map<String, Object> buildChatBody(ChatRequest request) {
         Map<String, Object> body = new HashMap<>();
-        body.put("model", chatModel);
+        body.put("model", selectChatModel());
         body.put("max_tokens", request.getMaxTokens() != null ? request.getMaxTokens() : maxTokens);
         body.put("temperature", request.getTemperature() != null ? request.getTemperature() : temperature);
+        body.put("enable_thinking", false);
 
         // 构建消息列表
         List<Map<String, String>> messages = new java.util.ArrayList<>();
@@ -223,5 +239,40 @@ public class QwenProvider implements LlmProvider {
             log.error("Failed to parse embedding response", e);
             throw new RuntimeException("Failed to parse embedding response", e);
         }
+    }
+
+    private List<String> parseModelPool(String rawModels) {
+        if (rawModels == null || rawModels.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(rawModels.split(","))
+                .map(String::trim)
+                .filter(model -> !model.isEmpty())
+                .distinct()
+                .toList();
+    }
+
+    private String selectChatModel() {
+        List<String> candidates = compatibleNonStreamingModels();
+        if (candidates.isEmpty()) {
+            return chatModel;
+        }
+        return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+    }
+
+    private List<String> compatibleNonStreamingModels() {
+        return chatModelPool.stream()
+                .filter(this::supportsNonStreamingChat)
+                .toList();
+    }
+
+    private boolean supportsNonStreamingChat(String model) {
+        if (model == null) {
+            return false;
+        }
+        String normalized = model.trim().toLowerCase();
+        return !normalized.equals("glm-4.5-air")
+                && !normalized.contains("ocr");
     }
 }

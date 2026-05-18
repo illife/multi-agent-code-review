@@ -34,6 +34,12 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
     @Value("${elasticsearch.index-name:kb_document_chunks}")
     private String indexName;
 
+    @Value("${elasticsearch.analyzer:standard}")
+    private String analyzer;
+
+    @Value("${elasticsearch.search-analyzer:${elasticsearch.analyzer:standard}}")
+    private String searchAnalyzer;
+
     @Override
     public void createIndex(String indexName) throws Exception {
         if (indexExists(indexName)) {
@@ -50,8 +56,8 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
             .mappings(m -> m
                 .properties("content", p -> p
                     .text(t -> t
-                        .analyzer("ik_max_word")  // 使用ik_max_word进行索引时分词
-                        .searchAnalyzer("ik_smart")  // 使用ik_smart进行搜索时分词
+                        .analyzer(analyzer)
+                        .searchAnalyzer(searchAnalyzer)
                         .fields("keyword", f -> f.keyword(k -> k))
                     )
                 )
@@ -66,8 +72,8 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
                 .properties("chunkId", p -> p.long_(l -> l))
                 .properties("title", p -> p
                     .text(t -> t
-                        .analyzer("ik_max_word")
-                        .searchAnalyzer("ik_smart")
+                        .analyzer(analyzer)
+                        .searchAnalyzer(searchAnalyzer)
                     )
                 )
                 .properties("fileName", p -> p.keyword(k -> k))
@@ -81,7 +87,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
             .build();
 
         client.indices().create(createRequest);
-        log.info("索引创建成功: {}", indexName);
+        log.info("索引创建成功: {}, analyzer={}, searchAnalyzer={}", indexName, analyzer, searchAnalyzer);
     }
 
     @Override
