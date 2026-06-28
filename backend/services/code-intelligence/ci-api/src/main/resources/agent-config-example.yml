@@ -45,10 +45,10 @@ qwen:
   api-url: https://dashscope.aliyuncs.com/compatible-mode/v1
 
   # 聊天模型
-  chat-model: qwen-turbo
+  chat-model: qwen3.6-flash
 
   # 嵌入模型
-  embedding-model: text-embedding-v4
+  embedding-model: ${QWEN_EMBEDDING_MODEL:text-embedding-v4}
 
   # 最大生成 Token 数
   max-tokens: 4000

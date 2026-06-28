@@ -116,6 +116,8 @@ jobs:
 
           ssh -p "$SSH_PORT" "$SSH_TARGET" "mkdir -p '${APP_DIR}' '${APP_DIR}/scripts'"
           scp -P "$SSH_PORT" docker-compose.server-test.yml "$SSH_TARGET:${APP_DIR}/docker-compose.server-test.yml"
+          scp -P "$SSH_PORT" docker-compose.ssl.yml "$SSH_TARGET:${APP_DIR}/docker-compose.ssl.yml"
+          scp -P "$SSH_PORT" nginx/nginx.ssl.conf "$SSH_TARGET:${APP_DIR}/nginx.ssl.conf"
           scp -P "$SSH_PORT" .github/deploy/server-deploy.sh "$SSH_TARGET:${APP_DIR}/scripts/server-deploy.sh"
           ssh -p "$SSH_PORT" "$SSH_TARGET" "chmod +x '${APP_DIR}/scripts/server-deploy.sh'"
 
@@ -136,6 +138,7 @@ jobs:
           QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
           QWEN_CHAT_MODEL: ${{ secrets.QWEN_CHAT_MODEL }}
           QWEN_CHAT_MODELS: ${{ secrets.QWEN_CHAT_MODELS }}
+          QWEN_EMBEDDING_MODEL: ${{ secrets.QWEN_EMBEDDING_MODEL }}
           ELASTICSEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_ANALYZER }}
           ELASTICSEARCH_SEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_SEARCH_ANALYZER }}
         run: |
@@ -157,6 +160,7 @@ jobs:
               "QWEN_API_KEY",
               "QWEN_CHAT_MODEL",
               "QWEN_CHAT_MODELS",
+              "QWEN_EMBEDDING_MODEL",
               "ELASTICSEARCH_ANALYZER",
               "ELASTICSEARCH_SEARCH_ANALYZER",
           ]

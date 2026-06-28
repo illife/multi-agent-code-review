@@ -50,10 +50,10 @@ services:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
       test: ["CMD-SHELL", "curl -u elastic:$${ELASTIC_PASSWORD} -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 10s
-      retries: 5
-      start_period: 90s
+      retries: 15
+      start_period: 180s
     networks:
       - kb-network
 
@@ -101,10 +101,10 @@ services:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
-      interval: 30s
+      interval: 20s
       timeout: 10s
-      retries: 10
-      start_period: 120s
+      retries: 15
+      start_period: 180s
     networks:
       - kb-network
 
@@ -189,8 +189,9 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
       QWEN_API_KEY: ${QWEN_API_KEY:?QWEN_API_KEY is required}
-      QWEN_CHAT_MODEL: ${QWEN_CHAT_MODEL:-qwen-plus-0112}
-      QWEN_CHAT_MODELS: ${QWEN_CHAT_MODELS:-}
+      QWEN_CHAT_MODEL: ${QWEN_CHAT_MODEL:-qwen3.6-flash}
+      QWEN_CHAT_MODELS: ${QWEN_CHAT_MODELS:-qwen3.6-flash,qwen3.7-plus}
+      QWEN_EMBEDDING_MODEL: ${QWEN_EMBEDDING_MODEL:-text-embedding-v4}
     depends_on:
       postgres:
         condition: service_healthy
@@ -225,8 +226,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-kb_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       QWEN_API_KEY: ${QWEN_API_KEY:?QWEN_API_KEY is required}
-      QWEN_CHAT_MODEL: ${QWEN_CHAT_MODEL:-qwen-plus-0112}
-      QWEN_CHAT_MODELS: ${QWEN_CHAT_MODELS:-}
+      QWEN_CHAT_MODEL: ${QWEN_CHAT_MODEL:-qwen3.6-flash}
+      QWEN_CHAT_MODELS: ${QWEN_CHAT_MODELS:-qwen3.6-flash,qwen3.7-plus}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_PRODUCER_COMPRESSION_TYPE: ${KAFKA_PRODUCER_COMPRESSION_TYPE:-none}
       MINIO_ENDPOINT: http://minio:9000

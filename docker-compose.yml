@@ -188,8 +188,9 @@ services:
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
       - QWEN_API_KEY=${QWEN_API_KEY:?QWEN_API_KEY is required}
-      - QWEN_CHAT_MODEL=${QWEN_CHAT_MODEL:-qwen-plus-0112}
-      - QWEN_CHAT_MODELS=${QWEN_CHAT_MODELS:-qwen-vl-plus,qwen-long,glm-4.5-air,qwen3-coder-480b-a35b-instruct,qwen3-vl-8b-thinking,qwen3-vl-flash-2025-10-15,qwen3-max-preview,qwen-vl-ocr-1028,qwen3-8b,qwen-plus-0112}
+      - QWEN_CHAT_MODEL=${QWEN_CHAT_MODEL:-qwen3.6-flash}
+      - QWEN_CHAT_MODELS=${QWEN_CHAT_MODELS:-qwen3.6-flash,qwen3.7-plus}
+      - QWEN_EMBEDDING_MODEL=${QWEN_EMBEDDING_MODEL:-text-embedding-v4}
     ports:
       - "8080:8080"
     networks:
@@ -221,8 +222,8 @@ services:
       - SPRING_DATASOURCE_USERNAME=kb_user
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - QWEN_API_KEY=${QWEN_API_KEY:?QWEN_API_KEY is required}
-      - QWEN_CHAT_MODEL=${QWEN_CHAT_MODEL:-qwen-plus-0112}
-      - QWEN_CHAT_MODELS=${QWEN_CHAT_MODELS:-qwen-vl-plus,qwen-long,glm-4.5-air,qwen3-coder-480b-a35b-instruct,qwen3-vl-8b-thinking,qwen3-vl-flash-2025-10-15,qwen3-max-preview,qwen-vl-ocr-1028,qwen3-8b,qwen-plus-0112}
+      - QWEN_CHAT_MODEL=${QWEN_CHAT_MODEL:-qwen3.6-flash}
+      - QWEN_CHAT_MODELS=${QWEN_CHAT_MODELS:-qwen3.6-flash,qwen3.7-plus}
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_PRODUCER_COMPRESSION_TYPE=${KAFKA_PRODUCER_COMPRESSION_TYPE:-none}
       - MINIO_ENDPOINT=http://minio:9000

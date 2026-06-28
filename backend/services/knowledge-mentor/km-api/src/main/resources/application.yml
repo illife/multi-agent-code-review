@@ -125,9 +125,9 @@ ai:
 qwen:
   api-key: ${QWEN_API_KEY:}
   api-url: ${QWEN_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
-  embedding-model: text-embedding-v4
-  chat-model: ${QWEN_CHAT_MODEL:qwen-plus-0112}
-  chat-models: ${QWEN_CHAT_MODELS:}
+  embedding-model: ${QWEN_EMBEDDING_MODEL:text-embedding-v4}
+  chat-model: ${QWEN_CHAT_MODEL:qwen3.6-flash}
+  chat-models: ${QWEN_CHAT_MODELS:qwen3.6-flash,qwen3.7-plus}
   max-tokens: 2000
   temperature: 0.7
   timeout: 60s

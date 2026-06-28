@@ -39,8 +39,8 @@ public class ChatRequest {
 
     /**
      * 最大生成 Token 数
-     * 默认值 7500，兼容 qwen-turbo 模型 (最大输出 8192)
-     * 如需更高 token 限制，请使用 qwen-plus 或 qwen-max 模型
+     * 默认值 7500，兼容 qwen3.6-flash 等低成本模型。
+     * 如需更高质量输出，请使用 qwen3.7-plus 或更高能力模型。
      */
     @Builder.Default
     private Integer maxTokens = 7500;

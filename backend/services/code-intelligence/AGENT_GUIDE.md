@@ -35,7 +35,7 @@ agent:
 
 qwen:
   api-key: ${QWEN_API_KEY}
-  chat-model: qwen-turbo
+  chat-model: qwen3.6-flash
 ```
 
 ### 2. 确保依赖已添加

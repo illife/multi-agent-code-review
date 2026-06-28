@@ -48,7 +48,7 @@ qwen:
   api-key: ${QWEN_API_KEY:test-placeholder-key}
   api-url: https://dashscope.aliyuncs.com/compatible-mode/v1
   embedding-model: text-embedding-v4
-  chat-model: qwen-plus
+  chat-model: qwen3.6-flash
 
 # 真实MinIO
 minio:

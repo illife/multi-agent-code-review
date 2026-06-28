@@ -26,6 +26,7 @@ bin/
 
 # Local agent/runtime state
 .agents/
+.codegraph/
 
 # BlueJ files
 *.ctxt

@@ -32,7 +32,7 @@ public class QwenProvider implements LlmProvider {
     @Value("${qwen.api-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
     private String apiUrl;
 
-    @Value("${qwen.chat-model:qwen-turbo}")
+    @Value("${qwen.chat-model:qwen3.6-flash}")
     private String chatModel;
 
     @Value("${qwen.chat-models:}")
