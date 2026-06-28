@@ -22,7 +22,44 @@ echo "[deploy] validate compose"
 docker compose "${COMPOSE_ARGS[@]}" config --quiet
 
 echo "[deploy] pull images"
-docker compose "${COMPOSE_ARGS[@]}" pull
+pull_with_retry() {
+  local service="$1"
+  local max_attempts="${2:-4}"
+  local attempt=1
+
+  while [ "$attempt" -le "$max_attempts" ]; do
+    echo "[deploy] pull ${service} (attempt ${attempt}/${max_attempts})"
+    if docker compose "${COMPOSE_ARGS[@]}" pull "$service"; then
+      return 0
+    fi
+
+    if [ "$attempt" -eq "$max_attempts" ]; then
+      echo "[deploy] failed to pull ${service} after ${max_attempts} attempts"
+      return 1
+    fi
+
+    sleep $((attempt * 20))
+    attempt=$((attempt + 1))
+  done
+}
+
+PULL_SERVICES=(
+  postgres
+  redis
+  elasticsearch
+  zookeeper
+  kafka
+  minio
+  api-gateway
+  auth-api
+  knowledge-mentor-api
+  code-intelligence-api
+  frontend
+)
+
+for service in "${PULL_SERVICES[@]}"; do
+  pull_with_retry "$service"
+done
 
 wait_for_healthy() {
   local service="$1"
