@@ -130,7 +130,6 @@ jobs:
           CODE_IMAGE: ${{ steps.images.outputs.code }}
           FRONTEND_IMAGE: ${{ steps.images.outputs.frontend }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
@@ -152,7 +151,6 @@ jobs:
               "CODE_IMAGE",
               "FRONTEND_IMAGE",
               "POSTGRES_PASSWORD",
-              "REDIS_PASSWORD",
               "ES_PASSWORD",
               "JWT_SECRET",
               "MINIO_ACCESS_KEY",
