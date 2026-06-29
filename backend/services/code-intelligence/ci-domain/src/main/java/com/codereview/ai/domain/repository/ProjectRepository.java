@@ -25,6 +25,11 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     Page<Project> findByUserId(Long userId, Pageable pageable);
 
     /**
+     * Find projects the user can see: their own projects plus public demo projects.
+     */
+    Page<Project> findByUserIdOrVisibility(Long userId, Project.ProjectVisibility visibility, Pageable pageable);
+
+    /**
      * Find projects by user and status
      */
     List<Project> findByUserIdAndStatus(Long userId, Project.ProjectStatus status);

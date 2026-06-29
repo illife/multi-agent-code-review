@@ -4,6 +4,9 @@ import com.think.platform.shared.common.result.Result;
 import com.think.platform.shared.common.result.ResultCode;
 import com.codereview.ai.domain.model.CodeIssue;
 import com.codereview.ai.domain.model.CodeReview;
+import com.codereview.ai.domain.model.Project;
+import com.codereview.ai.domain.repository.ProjectFileRepository;
+import com.codereview.ai.domain.repository.ProjectRepository;
 import com.codereview.ai.domain.service.CodeReviewService;
 import com.codereview.ai.security.SecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +41,8 @@ public class CodeReviewController {
 
     private final CodeReviewService codeReviewService;
     private final SecurityUtils securityUtils;
+    private final ProjectFileRepository projectFileRepository;
+    private final ProjectRepository projectRepository;
 
     @PostMapping("/submit")
     public Result<CodeReviewService.ReviewResultDTO> submitReview(
@@ -104,14 +109,12 @@ public class CodeReviewController {
 
             log.info("Get review detail: userId={}, reviewId={}", userId, reviewId);
 
-            CodeReviewService.ReviewDetailDTO detail = codeReviewService.getReviewDetail(reviewId);
-
-            if (!detail.getStatus().equals("PENDING")) {
-                CodeReview review = codeReviewService.getReview(reviewId);
-                if (!review.getUserId().equals(userId) && !"PUBLIC".equals(review.getVisibility())) {
-                    return Result.error(ResultCode.FORBIDDEN.getCode(), "No permission to access this review");
-                }
+            CodeReview review = codeReviewService.getReview(reviewId);
+            if (!canAccessReview(review, userId)) {
+                return Result.error(ResultCode.FORBIDDEN.getCode(), "No permission to access this review");
             }
+
+            CodeReviewService.ReviewDetailDTO detail = codeReviewService.getReviewDetail(reviewId);
 
             return Result.success(detail);
 
@@ -159,7 +162,7 @@ public class CodeReviewController {
             log.info("Get review issue list: userId={}, reviewId={}", userId, reviewId);
 
             CodeReview review = codeReviewService.getReview(reviewId);
-            if (!review.getUserId().equals(userId) && !"PUBLIC".equals(review.getVisibility())) {
+            if (!canAccessReview(review, userId)) {
                 return Result.error(ResultCode.FORBIDDEN.getCode(), "No permission to access this review");
             }
 
@@ -188,7 +191,7 @@ public class CodeReviewController {
             log.info("Get agent executions: userId={}, reviewId={}", userId, reviewId);
 
             CodeReview review = codeReviewService.getReview(reviewId);
-            if (!review.getUserId().equals(userId) && !"PUBLIC".equals(review.getVisibility())) {
+            if (!canAccessReview(review, userId)) {
                 return Result.error(ResultCode.FORBIDDEN.getCode(), "No permission to access this review");
             }
 
@@ -254,7 +257,7 @@ public class CodeReviewController {
 
             // Check permission
             CodeReview review = codeReviewService.getReview(reviewId);
-            if (!review.getUserId().equals(userId) && !"PUBLIC".equals(review.getVisibility())) {
+            if (!canAccessReview(review, userId)) {
                 return ResponseEntity.status(403).build();
             }
 
@@ -295,7 +298,7 @@ public class CodeReviewController {
 
             // Check permission
             CodeReview review = codeReviewService.getReview(reviewId);
-            if (!review.getUserId().equals(userId) && !"PUBLIC".equals(review.getVisibility())) {
+            if (!canAccessReview(review, userId)) {
                 return ResponseEntity.status(403).build();
             }
 
@@ -335,5 +338,16 @@ public class CodeReviewController {
         public void setFileName(String fileName) { this.fileName = fileName; }
         public String getVisibility() { return visibility; }
         public void setVisibility(String visibility) { this.visibility = visibility; }
+    }
+
+    private boolean canAccessReview(CodeReview review, Long userId) {
+        if (review.getUserId().equals(userId) || "PUBLIC".equals(review.getVisibility())) {
+            return true;
+        }
+
+        return projectFileRepository.findByReviewId(review.getId())
+                .flatMap(file -> projectRepository.findById(file.getProjectId()))
+                .map(project -> project.getVisibility() == Project.ProjectVisibility.PUBLIC)
+                .orElse(false);
     }
 }

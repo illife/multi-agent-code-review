@@ -405,7 +405,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public Page<Project> getUserProjects(Long userId, Pageable pageable) {
-        return projectRepository.findByUserId(userId, pageable);
+        return projectRepository.findByUserIdOrVisibility(userId, Project.ProjectVisibility.PUBLIC, pageable);
     }
 
     @Override

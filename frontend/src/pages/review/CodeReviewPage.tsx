@@ -453,7 +453,7 @@ const CodeReviewPage: React.FC = () => {
                     >
                       {projects.map((project) => (
                         <option key={project.id} value={project.id}>
-                          {project.projectName} - {getProjectStatusText(project.status)}
+                          {project.projectName} - {getProjectStatusText(project.status)}{project.visibility === 'PUBLIC' ? ' - 公开' : ''}
                         </option>
                       ))}
                     </select>

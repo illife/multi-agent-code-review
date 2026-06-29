@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import {
   FolderKanban,
   Upload,
@@ -21,6 +22,7 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import MarkdownReport from '../../components/MarkdownReport'
 import { PROJECT_UPLOAD_CHUNK_SIZE, projectService } from '../../services/project.service'
+import { selectUser } from '../../store/slices/authSlice'
 import type { ProjectUploadProgress } from '../../services/project.service'
 import type {
   ProjectInfo,
@@ -30,6 +32,7 @@ import type {
 } from '../../types'
 
 const ProjectPage: React.FC = () => {
+  const currentUser = useSelector(selectUser)
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [selectedProject, setSelectedProject] = useState<ProjectInfo | null>(null)
   const [projectStatus, setProjectStatus] = useState<ProjectStatusDTO | null>(null)
@@ -45,7 +48,7 @@ const ProjectPage: React.FC = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
-  const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC' | 'TEAM'>('PRIVATE')
+  const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC' | 'TEAM'>('PUBLIC')
 
   useEffect(() => {
     loadProjects()
@@ -198,7 +201,7 @@ const ProjectPage: React.FC = () => {
     setUploadFile(null)
     setProjectName('')
     setDescription('')
-    setVisibility('PRIVATE')
+    setVisibility('PUBLIC')
     setUploadProgress(null)
   }
 
@@ -250,6 +253,18 @@ const ProjectPage: React.FC = () => {
     }
     return variants[status] || 'default'
   }
+
+  const currentUserId = useMemo(() => {
+    if (currentUser?.id) return String(currentUser.id)
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}')
+      return String(storedUser?.id || localStorage.getItem('userId') || '')
+    } catch {
+      return String(localStorage.getItem('userId') || '')
+    }
+  }, [currentUser?.id])
+
+  const canDeleteProject = (project: ProjectInfo) => String(project.userId) === currentUserId
 
   const dashboardStats = useMemo(() => {
     return {
@@ -306,8 +321,8 @@ const ProjectPage: React.FC = () => {
 
       <Card variant="bordered">
         <CardHeader>
-          <CardTitle>我的项目</CardTitle>
-          <CardDescription>查看分析进度、文件清单和审查入口</CardDescription>
+          <CardTitle>可访问项目</CardTitle>
+          <CardDescription>查看自己的项目和公开演示项目，分析完成后可直接进入文件级审查</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -370,6 +385,12 @@ const ProjectPage: React.FC = () => {
                       {project.status === 'FAILED' && '失败'}
                     </Badge>
 
+                    {project.visibility === 'PUBLIC' && (
+                      <Badge size="sm" variant="info">
+                        公开
+                      </Badge>
+                    )}
+
                     {project.totalIssues > 0 && (
                       <Badge size="sm" variant="warning">
                         {project.totalIssues} 个问题
@@ -385,13 +406,15 @@ const ProjectPage: React.FC = () => {
                       详情
                     </Button>
 
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(project.id, project.projectName)}
-                    >
-                      <Trash2 className="h-4 w-4 text-error-600" />
-                    </Button>
+                    {canDeleteProject(project) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(project.id, project.projectName)}
+                      >
+                        <Trash2 className="h-4 w-4 text-error-600" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
