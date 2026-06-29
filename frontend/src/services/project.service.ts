@@ -12,7 +12,7 @@ import type {
   ArchitectureRecommendations,
 } from '../types'
 
-const PROJECT_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
+export const PROJECT_UPLOAD_CHUNK_SIZE = 1 * 1024 * 1024
 
 export type ProjectUploadStage = 'initializing' | 'uploading' | 'completing'
 
@@ -32,7 +32,7 @@ const uploadChunkWithRetry = async (
     chunkIndex: number
     totalChunks: number
   },
-  maxAttempts = 3
+  maxAttempts = 5
 ) => {
   let lastError: unknown
 
@@ -41,7 +41,7 @@ const uploadChunkWithRetry = async (
       const response = await api.post<ApiResponse<string>>('/project/upload/chunk', formData, {
         params,
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000,
+        timeout: 180000,
       })
 
       if (response.data.code !== 200) {
@@ -52,12 +52,13 @@ const uploadChunkWithRetry = async (
     } catch (error) {
       lastError = error
       if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, attempt * 1000))
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1500))
       }
     }
   }
 
-  throw lastError
+  const message = lastError instanceof Error ? lastError.message : '网络连接中断'
+  throw new Error(`第 ${params.chunkIndex + 1}/${params.totalChunks} 个分片上传失败：${message}`)
 }
 
 export const projectService = {

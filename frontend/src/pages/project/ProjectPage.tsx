@@ -20,7 +20,7 @@ import Card, { CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import MarkdownReport from '../../components/MarkdownReport'
-import { projectService } from '../../services/project.service'
+import { PROJECT_UPLOAD_CHUNK_SIZE, projectService } from '../../services/project.service'
 import type { ProjectUploadProgress } from '../../services/project.service'
 import type {
   ProjectInfo,
@@ -121,7 +121,7 @@ const ProjectPage: React.FC = () => {
       stage: 'initializing',
       percent: 0,
       uploadedChunks: 0,
-      totalChunks: Math.ceil(uploadFile.size / (5 * 1024 * 1024)),
+      totalChunks: Math.ceil(uploadFile.size / PROJECT_UPLOAD_CHUNK_SIZE),
     })
     try {
       const response = await projectService.uploadProject(
