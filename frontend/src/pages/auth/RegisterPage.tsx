@@ -26,8 +26,8 @@ type RegisterFormData = z.infer<typeof registerSchema>
 const onboardingHighlights = [
   '代码审查、知识库、问答和学习路径协同',
   '文档上传后自动解析、切块、向量化并建立索引',
-  '支持项目级分析报告，适合面试现场演示架构闭环',
-  '新服务器独立数据，不依赖历史账号或旧环境',
+  '支持项目级分析报告，沉淀工程质量与知识闭环',
+  '独立工作区管理账号、文档、审查记录和项目结果',
 ]
 
 const RegisterPage: React.FC = () => {
@@ -88,7 +88,7 @@ const RegisterPage: React.FC = () => {
           <div className="mb-7">
             <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white/70 px-3 py-1 text-sm text-slate-600 shadow-sm">
               <Fingerprint className="h-4 w-4 text-teal-700" />
-              创建一个新的演示身份
+              创建新的工作身份
             </div>
             <h1 className="text-4xl font-black tracking-normal text-slate-950">创建账号</h1>
             <p className="mt-3 text-base leading-7 text-slate-600">
@@ -173,7 +173,7 @@ const RegisterPage: React.FC = () => {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-500">
-            注册即表示你理解这是面试演示环境，历史数据不会从旧服务器迁移。
+            注册后即可进入工作台，账号、文档和项目结果会保存在你的工作区。
           </p>
         </div>
       </section>

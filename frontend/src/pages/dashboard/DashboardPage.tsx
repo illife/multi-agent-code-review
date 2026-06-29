@@ -60,7 +60,7 @@ const demoModules = [
   },
   {
     title: '智能问答',
-    description: '基于已索引文档进行上下文问答，适合现场展示 RAG 流程。',
+    description: '基于已索引文档进行上下文问答，用于追踪检索来源与回答依据。',
     path: '/knowledge/qa',
     icon: MessageSquare,
     tone: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -247,13 +247,13 @@ const DashboardPage: React.FC = () => {
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-sm text-slate-200">
               <TrendingUp className="h-4 w-4 text-[#facc15]" />
-              在线演示环境 · codeview.top
+              云端运行 · codeview.top
             </div>
             <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-normal">
               欢迎回来，{localStorage.getItem('username') || '开发者'}
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300">
-              这里是 CodeView AI 的演示工作台。它把代码审查、知识库检索、文档问答和项目管理串成一个可讲清楚的全栈 AI 工程闭环。
+              这里是 CodeView AI 工作台。它把代码审查、知识库检索、文档问答和项目管理串成一个完整的全栈 AI 工程闭环。
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
@@ -277,7 +277,7 @@ const DashboardPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm uppercase text-slate-400">Architecture</p>
-                <p className="mt-2 text-lg font-bold">演示链路</p>
+                <p className="mt-2 text-lg font-bold">系统链路</p>
               </div>
               <div className="rounded-lg bg-[#facc15] p-2 text-slate-950">
                 <Search className="h-5 w-5" />
@@ -295,7 +295,7 @@ const DashboardPage: React.FC = () => {
               ))}
             </div>
             <div className="mt-5 rounded-lg bg-black/20 p-4 text-sm leading-6 text-slate-300">
-              面试时可以按这条链路说明：前端触发业务，网关鉴权分发，服务处理后通过 Kafka 异步解析，最终落到 Postgres、MinIO 和 Elasticsearch。
+              请求从前端进入网关，完成鉴权与服务分发；异步任务通过 Kafka 处理，数据最终写入 Postgres、MinIO 和 Elasticsearch。
             </div>
           </div>
         </div>
@@ -462,7 +462,7 @@ const DashboardPage: React.FC = () => {
         <Card variant="bordered">
           <CardHeader>
             <CardTitle>快速开始</CardTitle>
-            <CardDescription>选择一个真实可用的演示动作</CardDescription>
+            <CardDescription>选择一个常用工作入口</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -501,7 +501,7 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <div className="text-center">
                   <p className="font-medium text-slate-900 dark:text-slate-100">知识库问答</p>
-                  <p className="text-sm text-slate-500">展示 RAG 查询链路</p>
+                  <p className="text-sm text-slate-500">检索并生成回答</p>
                 </div>
               </Link>
 

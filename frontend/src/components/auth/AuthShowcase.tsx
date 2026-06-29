@@ -45,7 +45,7 @@ const AuthShowcase: React.FC = () => {
       <div className="relative z-10 p-10 xl:p-14">
         <div className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-sm text-white/80 backdrop-blur">
           <Sparkles className="h-4 w-4 text-[#facc15]" />
-          面试演示版 · 多模块 AI 工程平台
+          CodeView AI · 多模块工程平台
         </div>
 
         <div className="mt-12 max-w-xl">
@@ -57,7 +57,7 @@ const AuthShowcase: React.FC = () => {
             <span className="block text-[#5eead4]">Review Lab</span>
           </h1>
           <p className="mt-5 text-lg leading-8 text-slate-200">
-            一个把代码审查、知识库问答、学习路径和项目管理串在一起的全栈 AI 系统，适合现场展示架构、工程化和业务闭环。
+            一个把代码审查、知识库问答、学习路径和项目管理串在一起的全栈 AI 系统，用于支撑代码质量分析、知识检索与项目协作流程。
           </p>
         </div>
 

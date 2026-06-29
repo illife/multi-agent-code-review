@@ -109,7 +109,7 @@ const LoginPage: React.FC = () => {
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 text-slate-600">
                   <input type="checkbox" className="rounded border-slate-300 text-teal-700 focus:ring-teal-600" />
-                  记住本次演示设备
+                  记住这台设备
                 </label>
                 <span className="text-slate-400">Token 自动续期</span>
               </div>
@@ -126,9 +126,9 @@ const LoginPage: React.FC = () => {
                   <UserRound className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">新服务器没有迁移旧账号</p>
+                  <p className="text-sm font-semibold text-slate-900">没有账号也可以直接开始</p>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    如果你还带着旧登录态，请直接注册一个新账号，上传文档和演示数据会保存在当前服务器。
+                    创建账号后即可上传文档、提交代码审查，并在独立工作区中管理分析结果。
                   </p>
                 </div>
               </div>
@@ -137,7 +137,7 @@ const LoginPage: React.FC = () => {
             <div className="mt-6 text-center text-sm text-slate-600">
               还没有账号？{' '}
               <Link to="/register" className="font-semibold text-teal-700 hover:text-teal-800">
-                创建演示账号
+                创建新账号
               </Link>
             </div>
           </div>
