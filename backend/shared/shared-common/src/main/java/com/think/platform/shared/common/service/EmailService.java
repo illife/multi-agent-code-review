@@ -9,6 +9,14 @@ package com.think.platform.shared.common.service;
 public interface EmailService {
 
     /**
+     * 发送注册邮箱验证邮件
+     *
+     * @param email 收件人邮箱
+     * @param token 邮箱验证令牌
+     */
+    void sendEmailVerificationEmail(String email, String token);
+
+    /**
      * 发送密码重置邮件
      *
      * @param email 收件人邮箱

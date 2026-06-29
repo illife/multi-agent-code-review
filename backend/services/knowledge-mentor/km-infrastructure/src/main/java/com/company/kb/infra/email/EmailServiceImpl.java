@@ -42,6 +42,28 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendEmailVerificationEmail(String email, String token) {
+        try {
+            String verifyUrl = String.format("%s/verify-email?token=%s", frontendUrl, token);
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject("确认您的邮箱");
+            message.setText(String.format(
+                    "您好，\n\n请点击以下链接确认您的邮箱：\n\n%s\n\n如果您没有注册账号，请忽略此邮件。\n\n知识库系统团队",
+                    verifyUrl
+            ));
+
+            mailSender.send(message);
+            log.info("邮箱验证邮件已发送: email={}", email);
+        } catch (Exception e) {
+            log.error("发送邮箱验证邮件失败: email={}", email, e);
+            throw new RuntimeException("发送邮箱验证邮件失败", e);
+        }
+    }
+
+    @Override
     public void sendPasswordResetEmail(String email, String token) {
         try {
             String resetUrl = String.format("%s/reset-password?token=%s", frontendUrl, token);

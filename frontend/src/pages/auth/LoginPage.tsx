@@ -41,7 +41,7 @@ const LoginPage: React.FC = () => {
       const response = await authService.login(data)
 
       if (response.code === 200 && response.data) {
-        const { accessToken, refreshToken, userId, username } = response.data
+        const { accessToken, refreshToken, userId, username, email, emailVerified } = response.data
 
         localStorage.setItem('token', accessToken)
         localStorage.setItem('refreshToken', refreshToken)
@@ -49,8 +49,9 @@ const LoginPage: React.FC = () => {
         const user = {
           id: userId?.toString() || '',
           username: username || '',
-          email: '',
+          email: email || '',
           role: 'USER',
+          emailVerified: emailVerified || false,
         }
         localStorage.setItem('user', JSON.stringify(user))
         localStorage.setItem('userId', user.id)
@@ -114,12 +115,14 @@ const LoginPage: React.FC = () => {
                 {...register('password')}
               />
 
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between gap-3 text-sm">
                 <label className="flex items-center gap-2 text-slate-600">
                   <input type="checkbox" className="rounded border-slate-300 text-teal-700 focus:ring-teal-600" />
                   记住这台设备
                 </label>
-                <span className="text-slate-400">Token 自动续期</span>
+                <Link to="/forgot-password" className="font-semibold text-teal-700 hover:text-teal-800">
+                  忘记密码？
+                </Link>
               </div>
 
               <Button type="submit" className="h-12 w-full bg-slate-950 text-white hover:bg-slate-800" loading={loading}>

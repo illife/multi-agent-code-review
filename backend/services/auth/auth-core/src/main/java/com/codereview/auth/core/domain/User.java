@@ -54,6 +54,13 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "email_verified")
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    @Column(name = "email_verified_at")
+    private LocalDateTime emailVerifiedAt;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 

@@ -26,6 +26,19 @@ public class ConsoleEmailService implements EmailService {
     private int expirationHours;
 
     @Override
+    public void sendEmailVerificationEmail(String email, String token) {
+        String verifyUrl = String.format("%s/verify-email?token=%s", frontendUrl, token);
+
+        log.info("====================================");
+        log.info("[开发环境] 邮箱验证邮件");
+        log.info("====================================");
+        log.info("收件人: {}", email);
+        log.info("验证链接: {}", verifyUrl);
+        log.info("Token: {}", token);
+        log.info("====================================");
+    }
+
+    @Override
     public void sendPasswordResetEmail(String email, String token) {
         String resetUrl = String.format("%s/reset-password?token=%s", frontendUrl, token);
 

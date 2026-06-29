@@ -68,6 +68,38 @@ export const authService = {
   },
 
   /**
+   * Request password reset email
+   */
+  async forgotPassword(email: string): Promise<ApiResponse<void>> {
+    const response = await api.post<ApiResponse<void>>('/auth/forgot-password', { email })
+    return response.data
+  },
+
+  /**
+   * Reset password with email token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<ApiResponse<void>> {
+    const response = await api.post<ApiResponse<void>>('/auth/reset-password', { token, newPassword })
+    return response.data
+  },
+
+  /**
+   * Verify registration email
+   */
+  async verifyEmail(token: string): Promise<ApiResponse<void>> {
+    const response = await api.post<ApiResponse<void>>('/auth/verify-email', { token })
+    return response.data
+  },
+
+  /**
+   * Resend verification email for current user
+   */
+  async resendVerificationEmail(): Promise<ApiResponse<void>> {
+    const response = await api.post<ApiResponse<void>>('/auth/resend-verification-email')
+    return response.data
+  },
+
+  /**
    * Logout
    */
   async logout(): Promise<ApiResponse<void>> {

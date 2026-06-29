@@ -5,7 +5,7 @@ import { authService } from '../../services/auth.service'
 import type { UserInfo } from '../../types'
 import Card, { CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import { User, Mail, Shield, Calendar, Save, LogOut, Key, Eye, EyeOff } from 'lucide-react'
+import { User, Mail, Shield, Calendar, Save, LogOut, Key, Eye, EyeOff, BadgeCheck, Send } from 'lucide-react'
 
 const ProfilePage: React.FC = () => {
   const dispatch = useDispatch()
@@ -15,6 +15,7 @@ const ProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+  const [sendingVerification, setSendingVerification] = useState(false)
 
   // Profile edit state
   const [editing, setEditing] = useState(false)
@@ -125,6 +126,22 @@ const ProfilePage: React.FC = () => {
     }
   }
 
+  const handleResendVerificationEmail = async () => {
+    setSendingVerification(true)
+    try {
+      const response = await authService.resendVerificationEmail()
+      if (response.code === 200) {
+        showMessage('success', '验证邮件已发送，请查看邮箱')
+      } else {
+        showMessage('error', response.message || '发送验证邮件失败')
+      }
+    } catch (error: any) {
+      showMessage('error', error.response?.data?.message || '发送验证邮件失败')
+    } finally {
+      setSendingVerification(false)
+    }
+  }
+
   const handleLogout = () => {
     if (confirm('确定要退出登录吗？')) {
       dispatch(logout())
@@ -223,12 +240,22 @@ const ProfilePage: React.FC = () => {
                 <Mail className="h-4 w-4" />
                 邮箱
               </label>
-              <input
-                type="email"
-                value={userInfo?.email || ''}
-                disabled
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={userInfo?.email || ''}
+                  disabled
+                  className="min-w-0 flex-1 px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                />
+                <span className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-3 text-sm font-medium ${
+                  userInfo?.emailVerified
+                    ? 'border-teal-200 bg-teal-50 text-teal-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-700'
+                }`}>
+                  <BadgeCheck className="h-4 w-4" />
+                  {userInfo?.emailVerified ? '已验证' : '未验证'}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -295,6 +322,37 @@ const ProfilePage: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {!userInfo?.emailVerified && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              邮箱验证
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4 rounded-lg bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="font-medium text-amber-950">确认邮箱后账号安全功能会更完整</h4>
+                <p className="mt-1 text-sm leading-6 text-amber-800">
+                  找回密码、安全提醒和账号确认邮件都会发送到 {userInfo?.email}。
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResendVerificationEmail}
+                loading={sendingVerification}
+                className="shrink-0 border-amber-300 bg-white text-amber-800 hover:bg-amber-100"
+              >
+                重新发送
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Security Card */}
       <Card>

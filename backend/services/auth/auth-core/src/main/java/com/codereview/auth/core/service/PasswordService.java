@@ -113,7 +113,7 @@ public class PasswordService {
      * 重置密码
      */
     @Transactional
-    public void resetPassword(String token, String newPassword) {
+    public User resetPassword(String token, String newPassword) {
         PasswordResetToken resetToken = validateResetToken(token);
 
         User user = resetToken.getUser();
@@ -125,6 +125,7 @@ public class PasswordService {
         passwordResetTokenRepository.save(resetToken);
 
         log.info("Password reset successfully for user: {}", user.getUsername());
+        return user;
     }
 
     /**

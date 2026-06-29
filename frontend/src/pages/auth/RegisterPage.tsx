@@ -54,7 +54,7 @@ const RegisterPage: React.FC = () => {
       const response = await authService.register(data)
 
       if (response.code === 200 && response.data) {
-        const { accessToken, refreshToken, userId, username } = response.data
+        const { accessToken, refreshToken, userId, username, emailVerified } = response.data
 
         localStorage.setItem('token', accessToken)
         localStorage.setItem('refreshToken', refreshToken)
@@ -68,6 +68,7 @@ const RegisterPage: React.FC = () => {
           fullName: data.fullName,
           role: 'USER',
           isActive: true,
+          emailVerified: emailVerified || false,
         }
         localStorage.setItem('user', JSON.stringify(userInfo))
 
@@ -77,6 +78,7 @@ const RegisterPage: React.FC = () => {
           username,
           email: data.email,
           role: 'USER',
+          emailVerified: emailVerified || false,
         }))
 
         navigate('/dashboard')

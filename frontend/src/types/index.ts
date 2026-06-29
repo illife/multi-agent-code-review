@@ -19,6 +19,7 @@ export interface AuthResponse {
   username: string
   email?: string
   role?: string
+  emailVerified?: boolean
 }
 
 export interface UserInfo {
@@ -28,6 +29,7 @@ export interface UserInfo {
   fullName?: string
   role: string
   isActive: boolean
+  emailVerified?: boolean
   createdAt?: string
   lastLoginAt?: string
 }

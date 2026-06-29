@@ -26,6 +26,8 @@ public class AuthResponse {
 
     private String role;
 
+    private Boolean emailVerified;
+
     public static AuthResponse of(String accessToken, String refreshToken, Long userId, String username, String role) {
         AuthResponse response = new AuthResponse();
         response.setAccessToken(accessToken);
@@ -33,6 +35,13 @@ public class AuthResponse {
         response.setUserId(userId);
         response.setUsername(username);
         response.setRole(role);
+        return response;
+    }
+
+    public static AuthResponse of(String accessToken, String refreshToken, Long userId, String username, String email, String role, Boolean emailVerified) {
+        AuthResponse response = of(accessToken, refreshToken, userId, username, role);
+        response.setEmail(email);
+        response.setEmailVerified(emailVerified);
         return response;
     }
 }

@@ -1,10 +1,11 @@
 package com.codereview.auth.core.service;
 
 import com.codereview.auth.core.domain.User;
-import com.codereview.auth.core.repository.UserRepository;
 import com.think.platform.shared.common.dto.LoginRequest;
 import com.think.platform.shared.common.dto.RegisterRequest;
 import com.think.platform.shared.common.exception.BusinessException;
+import com.think.platform.shared.common.exception.ResourceNotFoundException;
+import com.think.platform.shared.common.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,8 +32,9 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
     private final PasswordService passwordService;
+    private final EmailVerificationService emailVerificationService;
     private final TokenService tokenService;
-    private final UserRepository userRepository;
+    private final EmailService emailService;
 
     /**
      * 用户登录
@@ -74,6 +76,8 @@ public class AuthService {
             tokens.put("tokenType", "Bearer");
             tokens.put("userId", user.getId().toString());
             tokens.put("username", user.getUsername());
+            tokens.put("email", user.getEmail());
+            tokens.put("emailVerified", String.valueOf(user.getEmailVerified()));
 
             return tokens;
 
@@ -92,6 +96,7 @@ public class AuthService {
 
         // 注册用户
         User user = userService.registerUser(request);
+        sendEmailVerification(user);
 
         // 生成令牌
         String accessToken = tokenService.generateAccessToken(user);
@@ -106,6 +111,8 @@ public class AuthService {
         tokens.put("tokenType", "Bearer");
         tokens.put("userId", user.getId().toString());
         tokens.put("username", user.getUsername());
+        tokens.put("email", user.getEmail());
+        tokens.put("emailVerified", String.valueOf(user.getEmailVerified()));
 
         return tokens;
     }
@@ -168,6 +175,12 @@ public class AuthService {
     @Transactional
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         passwordService.changePassword(userId, oldPassword, newPassword);
+        User user = userService.getUserById(userId);
+        try {
+            emailService.sendPasswordChangedConfirmationEmail(user.getEmail());
+        } catch (Exception e) {
+            log.warn("Failed to send password change confirmation email: userId={}", userId, e);
+        }
         log.info("Password changed for userId: {}", userId);
     }
 
@@ -176,11 +189,17 @@ public class AuthService {
      */
     @Transactional
     public String forgotPassword(String email) {
-        String resetToken = passwordService.generateResetToken(email);
+        String resetToken;
+        try {
+            resetToken = passwordService.generateResetToken(email);
+        } catch (ResourceNotFoundException e) {
+            log.info("Password reset requested for non-existing email: {}", email);
+            return null;
+        }
+
         log.info("Password reset token generated for email: {}", email);
 
-        // TODO: 发送邮件
-        // emailService.sendPasswordResetEmail(email, resetToken);
+        emailService.sendPasswordResetEmail(email, resetToken);
 
         return resetToken;
     }
@@ -190,7 +209,42 @@ public class AuthService {
      */
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        passwordService.resetPassword(token, newPassword);
+        User user = passwordService.resetPassword(token, newPassword);
+        try {
+            emailService.sendPasswordResetConfirmationEmail(user.getEmail());
+        } catch (Exception e) {
+            log.warn("Failed to send password reset confirmation email: userId={}", user.getId(), e);
+        }
         log.info("Password reset successfully");
+    }
+
+    /**
+     * 验证邮箱
+     */
+    @Transactional
+    public User verifyEmail(String token) {
+        return emailVerificationService.verifyEmail(token);
+    }
+
+    /**
+     * 重新发送邮箱验证邮件
+     */
+    @Transactional
+    public void resendVerificationEmail(Long userId) {
+        User user = userService.getUserById(userId);
+        sendEmailVerification(user);
+    }
+
+    private void sendEmailVerification(User user) {
+        String token = emailVerificationService.generateVerificationToken(user);
+        if (token == null) {
+            return;
+        }
+
+        try {
+            emailService.sendEmailVerificationEmail(user.getEmail(), token);
+        } catch (Exception e) {
+            log.warn("Failed to send email verification email: userId={}", user.getId(), e);
+        }
     }
 }

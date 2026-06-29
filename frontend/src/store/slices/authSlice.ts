@@ -11,6 +11,7 @@ export interface User {
   username: string;
   email: string;
   role: string;
+  emailVerified?: boolean;
   avatar?: string;
   createdAt?: string;
 }
@@ -61,6 +62,7 @@ export const loginAsync = createAsyncThunk<
         username: authResponse.username || username,
         email: authResponse.email || '',
         role: authResponse.role || 'USER',
+        emailVerified: authResponse.emailVerified || false,
       };
 
       // Store token in localStorage

@@ -62,7 +62,20 @@ jwt:
 auth:
   password:
     reset-token-expiry-hours: 24
+  email:
+    verification-token-expiry-hours: 48
   refresh-token-expiry-days: 7
+
+app:
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+  password-reset:
+    expiration-hours: ${APP_PASSWORD_RESET_EXPIRATION_HOURS:24}
+  email-verification:
+    expiration-hours: ${APP_EMAIL_VERIFICATION_EXPIRATION_HOURS:48}
+
+resend:
+  api-key: ${RESEND_API_KEY:}
+  from-email: "${RESEND_FROM_EMAIL:CodeView <noreply@send.codeview.top>}"
 
 # Logging
 logging:

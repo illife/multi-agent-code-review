@@ -3,6 +3,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './components/layout/MainLayout'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
+import VerifyEmailPage from './pages/auth/VerifyEmailPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import CodeReviewPage from './pages/review/CodeReviewPage'
 import ProjectPage from './pages/project/ProjectPage'
@@ -53,6 +56,9 @@ function App() {
             </PublicRoute>
           }
         />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
 
         {/* Protected Routes */}
         <Route

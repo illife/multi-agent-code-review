@@ -140,6 +140,9 @@ jobs:
           QWEN_EMBEDDING_MODEL: ${{ secrets.QWEN_EMBEDDING_MODEL }}
           ELASTICSEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_ANALYZER }}
           ELASTICSEARCH_SEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_SEARCH_ANALYZER }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          APP_FRONTEND_URL: ${{ secrets.APP_FRONTEND_URL }}
         run: |
           python3 - <<'PY'
           import os
@@ -161,6 +164,9 @@ jobs:
               "QWEN_EMBEDDING_MODEL",
               "ELASTICSEARCH_ANALYZER",
               "ELASTICSEARCH_SEARCH_ANALYZER",
+              "RESEND_API_KEY",
+              "RESEND_FROM_EMAIL",
+              "APP_FRONTEND_URL",
           ]
 
           def quote(value: str) -> str:
@@ -173,6 +179,10 @@ jobs:
                   value = os.environ.get(key, "")
                   if value:
                       f.write(f"{key}={quote(value)}\n")
+                  elif key == "RESEND_FROM_EMAIL":
+                      f.write(f"{key}={quote('CodeView <noreply@send.codeview.top>')}\n")
+                  elif key == "APP_FRONTEND_URL":
+                      f.write(f"{key}={quote('https://codeview.top')}\n")
               f.write("KAFKA_PRODUCER_COMPRESSION_TYPE=none\n")
           PY
 

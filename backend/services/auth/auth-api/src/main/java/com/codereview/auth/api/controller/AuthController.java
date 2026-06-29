@@ -7,6 +7,7 @@ import com.codereview.auth.core.service.AuthService;
 import com.codereview.auth.core.service.UserService;
 import com.think.platform.shared.common.dto.AuthResponse;
 import com.think.platform.shared.common.dto.ChangePasswordRequest;
+import com.think.platform.shared.common.dto.EmailVerificationRequest;
 import com.think.platform.shared.common.dto.LoginRequest;
 import com.think.platform.shared.common.dto.PasswordResetConfirmRequest;
 import com.think.platform.shared.common.dto.PasswordResetRequest;
@@ -54,7 +55,9 @@ public class AuthController {
                 tokens.get("refreshToken"),
                 Long.parseLong(tokens.get("userId")),
                 tokens.get("username"),
-                "USER"
+                tokens.get("email"),
+                "USER",
+                Boolean.parseBoolean(tokens.getOrDefault("emailVerified", "false"))
         );
 
         return Result.success(response);
@@ -74,7 +77,9 @@ public class AuthController {
                 tokens.get("refreshToken"),
                 Long.parseLong(tokens.get("userId")),
                 tokens.get("username"),
-                "USER"
+                tokens.get("email"),
+                "USER",
+                Boolean.parseBoolean(tokens.getOrDefault("emailVerified", "false"))
         );
 
         return Result.success(response);
@@ -124,6 +129,7 @@ public class AuthController {
                 .fullName(user.getFullName())
                 .role(user.getRole() != null ? user.getRole().name() : "USER")
                 .isActive(user.getIsActive())
+                .emailVerified(user.getEmailVerified())
                 .build();
 
         return Result.success(userDTO);
@@ -146,6 +152,7 @@ public class AuthController {
                 .fullName(user.getFullName())
                 .role(user.getRole() != null ? user.getRole().name() : "USER")
                 .isActive(user.getIsActive())
+                .emailVerified(user.getEmailVerified())
                 .build();
 
         return Result.success(userDTO);
@@ -180,6 +187,28 @@ public class AuthController {
     @PostMapping("/reset-password")
     public Result<Void> resetPassword(@Valid @RequestBody PasswordResetConfirmRequest request) {
         authService.resetPassword(request.getToken(), request.getNewPassword());
+        return Result.success();
+    }
+
+    /**
+     * 验证邮箱
+     * POST /api/auth/verify-email
+     */
+    @PostMapping("/verify-email")
+    public Result<Void> verifyEmail(@Valid @RequestBody EmailVerificationRequest request) {
+        authService.verifyEmail(request.getToken());
+        return Result.success();
+    }
+
+    /**
+     * 重新发送邮箱验证邮件
+     * POST /api/auth/resend-verification-email
+     */
+    @PostMapping("/resend-verification-email")
+    public Result<Void> resendVerificationEmail() {
+        Long userId = SecurityUtils.getCurrentUserId()
+                .orElseThrow(() -> new com.think.platform.shared.common.exception.AuthenticationException("未登录"));
+        authService.resendVerificationEmail(userId);
         return Result.success();
     }
 

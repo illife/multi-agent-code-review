@@ -25,4 +25,5 @@ public class UserDTO {
     private String fullName;
     private String role; // USER, ADMIN
     private Boolean isActive;
+    private Boolean emailVerified;
 }
