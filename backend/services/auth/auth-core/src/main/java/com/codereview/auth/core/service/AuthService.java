@@ -4,7 +4,6 @@ import com.codereview.auth.core.domain.User;
 import com.think.platform.shared.common.dto.LoginRequest;
 import com.think.platform.shared.common.dto.RegisterRequest;
 import com.think.platform.shared.common.exception.BusinessException;
-import com.think.platform.shared.common.exception.ResourceNotFoundException;
 import com.think.platform.shared.common.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -189,14 +188,12 @@ public class AuthService {
      */
     @Transactional
     public String forgotPassword(String email) {
-        String resetToken;
-        try {
-            resetToken = passwordService.generateResetToken(email);
-        } catch (ResourceNotFoundException e) {
+        if (userService.findUserByEmail(email).isEmpty()) {
             log.info("Password reset requested for non-existing email: {}", email);
             return null;
         }
 
+        String resetToken = passwordService.generateResetToken(email);
         log.info("Password reset token generated for email: {}", email);
 
         emailService.sendPasswordResetEmail(email, resetToken);
