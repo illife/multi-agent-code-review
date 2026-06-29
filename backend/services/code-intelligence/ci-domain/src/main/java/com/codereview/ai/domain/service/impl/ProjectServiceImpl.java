@@ -22,11 +22,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -39,6 +43,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ProjectServiceImpl implements ProjectService {
+
+    private static final long MAX_ZIP_SIZE_BYTES = 100L * 1024 * 1024;
+    private static final long DEFAULT_CHUNK_SIZE_BYTES = 5L * 1024 * 1024;
 
     private final ProjectRepository projectRepository;
     private final ProjectFileRepository projectFileRepository;
@@ -115,6 +122,146 @@ public class ProjectServiceImpl implements ProjectService {
                     Files.deleteIfExists(tempFile.toPath());
                 } catch (Exception e) {
                     log.warn("Failed to delete temp file: {}", tempFile.getPath(), e);
+                }
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public ChunkedUploadSession initChunkedZipUpload(ChunkedUploadInitRequest request, Long userId) {
+        validateChunkedInitRequest(request);
+
+        Project project = Project.builder()
+            .userId(userId)
+            .projectName(request.getProjectName().trim())
+            .description(request.getDescription())
+            .uploadType(Project.UploadType.ZIP)
+            .status(Project.ProjectStatus.PENDING)
+            .visibility(request.getVisibility() != null ? request.getVisibility() : Project.ProjectVisibility.PRIVATE)
+            .totalSize(request.getFileSize())
+            .totalFiles(0)
+            .analyzedFiles(0)
+            .totalIssues(0)
+            .build();
+
+        project = projectRepository.save(project);
+
+        String uploadId = UUID.randomUUID().toString();
+        try {
+            Path uploadDir = getUploadDir(uploadId);
+            Files.createDirectories(uploadDir);
+            saveUploadMetadata(uploadDir, project.getId(), userId, request);
+        } catch (Exception e) {
+            log.error("Failed to initialize chunked upload: projectId={}", project.getId(), e);
+            throw new RuntimeException("Failed to initialize upload session", e);
+        }
+
+        ChunkedUploadSession session = new ChunkedUploadSession();
+        session.setProjectId(project.getId());
+        session.setUploadId(uploadId);
+        session.setProjectName(project.getProjectName());
+        session.setStatus(project.getStatus());
+        session.setTotalChunks(request.getTotalChunks());
+        session.setChunkSize(request.getChunkSize() != null ? request.getChunkSize() : DEFAULT_CHUNK_SIZE_BYTES);
+        session.setMessage("Upload session initialized");
+
+        log.info("Chunked ZIP upload initialized: userId={}, projectId={}, uploadId={}, chunks={}",
+            userId, project.getId(), uploadId, request.getTotalChunks());
+
+        return session;
+    }
+
+    @Override
+    public void uploadZipProjectChunk(Long projectId, String uploadId, int chunkIndex, int totalChunks,
+                                      InputStream inputStream, long chunkSize, Long userId) {
+        validateChunkIndex(chunkIndex, totalChunks);
+        Project project = getProjectForUser(projectId, userId);
+
+        try {
+            Path uploadDir = getUploadDir(uploadId);
+            Properties metadata = loadUploadMetadata(uploadDir);
+            validateUploadSession(metadata, project.getId(), userId, totalChunks);
+
+            Path chunkPath = uploadDir.resolve(chunkIndex + ".part").normalize();
+            if (!chunkPath.startsWith(uploadDir)) {
+                throw new SecurityException("Invalid chunk path");
+            }
+
+            Files.copy(inputStream, chunkPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Project ZIP chunk uploaded: projectId={}, uploadId={}, chunk={}/{}, size={}",
+                projectId, uploadId, chunkIndex + 1, totalChunks, chunkSize);
+
+        } catch (Exception e) {
+            log.error("Failed to upload project ZIP chunk: projectId={}, uploadId={}, chunk={}",
+                projectId, uploadId, chunkIndex, e);
+            throw new RuntimeException("Failed to upload chunk: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Long completeChunkedZipUpload(Long projectId, String uploadId, String fileName, int totalChunks, Long userId) {
+        Project project = getProjectForUser(projectId, userId);
+        File mergedFile = null;
+
+        try {
+            Path uploadDir = getUploadDir(uploadId);
+            Properties metadata = loadUploadMetadata(uploadDir);
+            validateUploadSession(metadata, project.getId(), userId, totalChunks);
+
+            String metadataFileName = metadata.getProperty("fileName");
+            if (fileName == null || fileName.isBlank()) {
+                fileName = metadataFileName;
+            }
+            validateZipFileName(fileName);
+
+            mergedFile = File.createTempFile("project-merged-" + projectId + "-", ".zip");
+            try (OutputStream outputStream = Files.newOutputStream(
+                mergedFile.toPath(),
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE
+            )) {
+                for (int i = 0; i < totalChunks; i++) {
+                    Path chunkPath = uploadDir.resolve(i + ".part").normalize();
+                    if (!chunkPath.startsWith(uploadDir) || !Files.exists(chunkPath)) {
+                        throw new IllegalArgumentException("Missing upload chunk: " + (i + 1));
+                    }
+                    Files.copy(chunkPath, outputStream);
+                }
+            }
+
+            long mergedSize = mergedFile.length();
+            if (mergedSize <= 0 || mergedSize > MAX_ZIP_SIZE_BYTES) {
+                throw new IllegalArgumentException("Invalid merged ZIP size");
+            }
+
+            String safeFileName = sanitizeFileName(fileName);
+            String objectName = "chunked/" + projectId + "/" + System.currentTimeMillis() + "-" + safeFileName;
+            String storagePath = minioService.uploadProjectFile(mergedFile, objectName);
+
+            project.setStoragePath(storagePath);
+            project.setTotalSize(mergedSize);
+            project.setStatus(Project.ProjectStatus.PENDING);
+            projectRepository.save(project);
+
+            kafkaProducerService.sendProjectAnalysisEvent(projectId);
+            deleteDirectoryQuietly(uploadDir);
+
+            log.info("Chunked ZIP upload completed: projectId={}, uploadId={}, storagePath={}, size={}",
+                projectId, uploadId, storagePath, mergedSize);
+
+            return projectId;
+
+        } catch (Exception e) {
+            log.error("Failed to complete chunked ZIP upload: projectId={}, uploadId={}", projectId, uploadId, e);
+            throw new RuntimeException("Failed to complete upload: " + e.getMessage(), e);
+        } finally {
+            if (mergedFile != null && mergedFile.exists()) {
+                try {
+                    Files.deleteIfExists(mergedFile.toPath());
+                } catch (Exception e) {
+                    log.warn("Failed to delete merged upload file: {}", mergedFile.getAbsolutePath(), e);
                 }
             }
         }
@@ -283,6 +430,125 @@ public class ProjectServiceImpl implements ProjectService {
         Project project = getProjectById(projectId);
         project.setTotalIssues((project.getTotalIssues() != null ? project.getTotalIssues() : 0) + issuesCount);
         projectRepository.save(project);
+    }
+
+    private void validateChunkedInitRequest(ChunkedUploadInitRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Upload request is required");
+        }
+        if (request.getProjectName() == null || request.getProjectName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Project name is required");
+        }
+        validateZipFileName(request.getFileName());
+        if (request.getFileSize() == null || request.getFileSize() <= 0) {
+            throw new IllegalArgumentException("File size is required");
+        }
+        if (request.getFileSize() > MAX_ZIP_SIZE_BYTES) {
+            throw new IllegalArgumentException("File size exceeds 100MB limit");
+        }
+        if (request.getTotalChunks() == null || request.getTotalChunks() <= 0) {
+            throw new IllegalArgumentException("Total chunks is required");
+        }
+        if (request.getTotalChunks() > 1000) {
+            throw new IllegalArgumentException("Too many upload chunks");
+        }
+    }
+
+    private void validateZipFileName(String fileName) {
+        if (fileName == null || fileName.isBlank() || !fileName.toLowerCase().endsWith(".zip")) {
+            throw new IllegalArgumentException("Only ZIP files are supported");
+        }
+    }
+
+    private void validateChunkIndex(int chunkIndex, int totalChunks) {
+        if (totalChunks <= 0) {
+            throw new IllegalArgumentException("Total chunks must be positive");
+        }
+        if (chunkIndex < 0 || chunkIndex >= totalChunks) {
+            throw new IllegalArgumentException("Invalid chunk index");
+        }
+    }
+
+    private Project getProjectForUser(Long projectId, Long userId) {
+        return projectRepository.findByIdAndUserId(projectId, userId)
+            .orElseThrow(() -> new IllegalArgumentException("Project not found or access denied: " + projectId));
+    }
+
+    private Path getUploadDir(String uploadId) {
+        if (uploadId == null || !uploadId.matches("[a-fA-F0-9\\-]{36}")) {
+            throw new IllegalArgumentException("Invalid upload session");
+        }
+        Path root = Path.of(System.getProperty("java.io.tmpdir"), "project-upload-chunks").normalize();
+        return root.resolve(uploadId).normalize();
+    }
+
+    private void saveUploadMetadata(Path uploadDir, Long projectId, Long userId, ChunkedUploadInitRequest request) throws Exception {
+        Properties metadata = new Properties();
+        metadata.setProperty("projectId", String.valueOf(projectId));
+        metadata.setProperty("userId", String.valueOf(userId));
+        metadata.setProperty("fileName", request.getFileName());
+        metadata.setProperty("fileSize", String.valueOf(request.getFileSize()));
+        metadata.setProperty("totalChunks", String.valueOf(request.getTotalChunks()));
+        metadata.setProperty("chunkSize", String.valueOf(request.getChunkSize() != null ? request.getChunkSize() : DEFAULT_CHUNK_SIZE_BYTES));
+
+        try (OutputStream outputStream = Files.newOutputStream(
+            uploadDir.resolve("upload.properties"),
+            StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING,
+            StandardOpenOption.WRITE
+        )) {
+            metadata.store(outputStream, "Project chunked upload metadata");
+        }
+    }
+
+    private Properties loadUploadMetadata(Path uploadDir) throws Exception {
+        Path metadataPath = uploadDir.resolve("upload.properties").normalize();
+        if (!metadataPath.startsWith(uploadDir) || !Files.exists(metadataPath)) {
+            throw new IllegalArgumentException("Upload session not found");
+        }
+
+        Properties metadata = new Properties();
+        try (InputStream inputStream = Files.newInputStream(metadataPath)) {
+            metadata.load(inputStream);
+        }
+        return metadata;
+    }
+
+    private void validateUploadSession(Properties metadata, Long projectId, Long userId, int totalChunks) {
+        Long metadataProjectId = Long.valueOf(metadata.getProperty("projectId", "0"));
+        Long metadataUserId = Long.valueOf(metadata.getProperty("userId", "0"));
+        int metadataTotalChunks = Integer.parseInt(metadata.getProperty("totalChunks", "0"));
+
+        if (!metadataProjectId.equals(projectId) || !metadataUserId.equals(userId)) {
+            throw new IllegalArgumentException("Upload session does not match current project");
+        }
+        if (metadataTotalChunks != totalChunks) {
+            throw new IllegalArgumentException("Upload chunk count changed");
+        }
+    }
+
+    private String sanitizeFileName(String fileName) {
+        String safeName = Path.of(fileName).getFileName().toString();
+        return safeName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private void deleteDirectoryQuietly(Path directory) {
+        try {
+            if (!Files.exists(directory)) {
+                return;
+            }
+            Files.walk(directory)
+                .sorted(Comparator.reverseOrder())
+                .forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (Exception e) {
+                        log.warn("Failed to delete upload temp path: {}", path, e);
+                    }
+                });
+        } catch (Exception e) {
+            log.warn("Failed to clean upload temp directory: {}", directory, e);
+        }
     }
 
     private ProjectFileDTO convertToDTO(ProjectFile file) {

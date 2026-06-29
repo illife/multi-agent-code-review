@@ -86,6 +86,16 @@ export interface ProjectUploadResponse {
   totalFiles: number
 }
 
+export interface ProjectUploadSession {
+  projectId: number
+  uploadId: string
+  projectName: string
+  status: 'PENDING' | 'ANALYZING' | 'COMPLETED' | 'FAILED'
+  totalChunks: number
+  chunkSize: number
+  message: string
+}
+
 export interface ProjectInfo {
   id: number
   userId: number

@@ -34,6 +34,97 @@ public class ProjectController {
     private final SecurityUtils securityUtils;
 
     /**
+     * Initialize a chunked ZIP upload. This creates the project record first so the UI can
+     * immediately show a pending project while file chunks are still being transferred.
+     */
+    @PostMapping("/upload/chunk/init")
+    public Result<ProjectService.ChunkedUploadSession> initChunkedZipUpload(
+            @RequestBody ProjectService.ChunkedUploadInitRequest uploadRequest,
+            HttpServletRequest httpRequest) {
+
+        try {
+            Long userId = securityUtils.getCurrentUserId(httpRequest);
+            ProjectService.ChunkedUploadSession session = projectService.initChunkedZipUpload(uploadRequest, userId);
+            return Result.success(session);
+        } catch (Exception e) {
+            log.error("Failed to initialize chunked project upload", e);
+            return Result.error("Failed to initialize upload: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Upload one chunk for a ZIP project.
+     */
+    @PostMapping("/upload/chunk")
+    public Result<String> uploadZipProjectChunk(
+            @RequestParam("projectId") Long projectId,
+            @RequestParam("uploadId") String uploadId,
+            @RequestParam("chunkIndex") int chunkIndex,
+            @RequestParam("totalChunks") int totalChunks,
+            @RequestParam("chunk") MultipartFile chunk,
+            HttpServletRequest httpRequest) {
+
+        try {
+            if (chunk.isEmpty()) {
+                return Result.error("Chunk is empty");
+            }
+
+            Long userId = securityUtils.getCurrentUserId(httpRequest);
+            projectService.uploadZipProjectChunk(
+                projectId,
+                uploadId,
+                chunkIndex,
+                totalChunks,
+                chunk.getInputStream(),
+                chunk.getSize(),
+                userId
+            );
+
+            return Result.success("Chunk uploaded");
+        } catch (Exception e) {
+            log.error("Failed to upload project chunk", e);
+            return Result.error("Failed to upload chunk: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Complete a chunked ZIP upload and start async project analysis.
+     */
+    @PostMapping("/upload/chunk/complete")
+    public Result<ProjectUploadResponse> completeChunkedZipUpload(
+            @RequestParam("projectId") Long projectId,
+            @RequestParam("uploadId") String uploadId,
+            @RequestParam("fileName") String fileName,
+            @RequestParam("totalChunks") int totalChunks,
+            HttpServletRequest httpRequest) {
+
+        try {
+            Long userId = securityUtils.getCurrentUserId(httpRequest);
+            Long completedProjectId = projectService.completeChunkedZipUpload(
+                projectId,
+                uploadId,
+                fileName,
+                totalChunks,
+                userId
+            );
+
+            Project project = projectService.getProjectById(completedProjectId);
+            ProjectUploadResponse response = new ProjectUploadResponse();
+            response.setProjectId(completedProjectId);
+            response.setProjectName(project.getProjectName());
+            response.setStatus(project.getStatus());
+            response.setMessage("Project uploaded successfully. Analysis will start shortly.");
+            response.setUploadType(project.getUploadType());
+            response.setTotalFiles(project.getTotalFiles());
+
+            return Result.success(response);
+        } catch (Exception e) {
+            log.error("Failed to complete chunked project upload", e);
+            return Result.error("Failed to complete upload: " + e.getMessage());
+        }
+    }
+
+    /**
      * Upload a ZIP project file
      *
      * @param file ZIP file containing the project

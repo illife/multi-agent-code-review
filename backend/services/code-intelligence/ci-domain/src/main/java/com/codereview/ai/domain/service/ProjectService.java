@@ -31,6 +31,41 @@ public interface ProjectService {
                          ProjectUploadRequest request, Long userId);
 
     /**
+     * Initialize a chunked ZIP upload and create a visible pending project record.
+     *
+     * @param request Chunked upload metadata
+     * @param userId User ID
+     * @return Upload session
+     */
+    ChunkedUploadSession initChunkedZipUpload(ChunkedUploadInitRequest request, Long userId);
+
+    /**
+     * Store one ZIP upload chunk.
+     *
+     * @param projectId Project ID created during init
+     * @param uploadId Upload session ID
+     * @param chunkIndex Zero-based chunk index
+     * @param totalChunks Total chunk count
+     * @param inputStream Chunk input stream
+     * @param chunkSize Chunk size in bytes
+     * @param userId User ID
+     */
+    void uploadZipProjectChunk(Long projectId, String uploadId, int chunkIndex, int totalChunks,
+                               InputStream inputStream, long chunkSize, Long userId);
+
+    /**
+     * Merge uploaded chunks, store the ZIP, and enqueue project analysis.
+     *
+     * @param projectId Project ID created during init
+     * @param uploadId Upload session ID
+     * @param fileName Original file name
+     * @param totalChunks Total chunk count
+     * @param userId User ID
+     * @return Project ID
+     */
+    Long completeChunkedZipUpload(Long projectId, String uploadId, String fileName, int totalChunks, Long userId);
+
+    /**
      * Get project by ID
      *
      * @param projectId Project ID
@@ -145,6 +180,62 @@ public interface ProjectService {
         public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
         public String getFileFilterConfig() { return fileFilterConfig; }
         public void setFileFilterConfig(String fileFilterConfig) { this.fileFilterConfig = fileFilterConfig; }
+    }
+
+    /**
+     * Chunked Upload Init Request DTO
+     */
+    class ChunkedUploadInitRequest {
+        private String projectName;
+        private String description;
+        private Project.ProjectVisibility visibility;
+        private String fileName;
+        private Long fileSize;
+        private Integer totalChunks;
+        private Long chunkSize;
+
+        public String getProjectName() { return projectName; }
+        public void setProjectName(String projectName) { this.projectName = projectName; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+        public Project.ProjectVisibility getVisibility() { return visibility; }
+        public void setVisibility(Project.ProjectVisibility visibility) { this.visibility = visibility; }
+        public String getFileName() { return fileName; }
+        public void setFileName(String fileName) { this.fileName = fileName; }
+        public Long getFileSize() { return fileSize; }
+        public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+        public Integer getTotalChunks() { return totalChunks; }
+        public void setTotalChunks(Integer totalChunks) { this.totalChunks = totalChunks; }
+        public Long getChunkSize() { return chunkSize; }
+        public void setChunkSize(Long chunkSize) { this.chunkSize = chunkSize; }
+    }
+
+    /**
+     * Chunked Upload Session DTO
+     */
+    class ChunkedUploadSession {
+        private Long projectId;
+        private String uploadId;
+        private String projectName;
+        private Project.ProjectStatus status;
+        private Integer totalChunks;
+        private Long chunkSize;
+        private String message;
+
+        public Long getProjectId() { return projectId; }
+        public void setProjectId(Long projectId) { this.projectId = projectId; }
+        public String getUploadId() { return uploadId; }
+        public void setUploadId(String uploadId) { this.uploadId = uploadId; }
+        public String getProjectName() { return projectName; }
+        public void setProjectName(String projectName) { this.projectName = projectName; }
+        public Project.ProjectStatus getStatus() { return status; }
+        public void setStatus(Project.ProjectStatus status) { this.status = status; }
+        public Integer getTotalChunks() { return totalChunks; }
+        public void setTotalChunks(Integer totalChunks) { this.totalChunks = totalChunks; }
+        public Long getChunkSize() { return chunkSize; }
+        public void setChunkSize(Long chunkSize) { this.chunkSize = chunkSize; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
     }
 
     /**

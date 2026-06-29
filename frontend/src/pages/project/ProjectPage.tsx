@@ -21,6 +21,7 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import MarkdownReport from '../../components/MarkdownReport'
 import { projectService } from '../../services/project.service'
+import type { ProjectUploadProgress } from '../../services/project.service'
 import type {
   ProjectInfo,
   ProjectStatusDTO,
@@ -36,6 +37,7 @@ const ProjectPage: React.FC = () => {
   const [projectReport, setProjectReport] = useState<ProjectReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<ProjectUploadProgress | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
 
@@ -115,12 +117,24 @@ const ProjectPage: React.FC = () => {
     }
 
     setUploading(true)
+    setUploadProgress({
+      stage: 'initializing',
+      percent: 0,
+      uploadedChunks: 0,
+      totalChunks: Math.ceil(uploadFile.size / (5 * 1024 * 1024)),
+    })
     try {
       const response = await projectService.uploadProject(
         uploadFile,
         projectName,
         description,
-        visibility
+        visibility,
+        async (progress) => {
+          setUploadProgress(progress)
+          if (progress.projectId && progress.stage === 'uploading' && progress.uploadedChunks === 0) {
+            await loadProjects()
+          }
+        }
       )
       if (response.code === 200 && response.data) {
         await loadProjects()
@@ -132,9 +146,10 @@ const ProjectPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Upload failed:', error)
-      alert(error.response?.data?.message || '上传失败，请重试')
+      alert(error.response?.data?.message || error.message || '上传失败，请重试')
     } finally {
       setUploading(false)
+      setUploadProgress(null)
     }
   }
 
@@ -184,6 +199,14 @@ const ProjectPage: React.FC = () => {
     setProjectName('')
     setDescription('')
     setVisibility('PRIVATE')
+    setUploadProgress(null)
+  }
+
+  const getUploadStageText = () => {
+    if (!uploadProgress) return ''
+    if (uploadProgress.stage === 'initializing') return '正在创建项目记录...'
+    if (uploadProgress.stage === 'completing') return '正在合并分片并启动分析...'
+    return `正在上传分片 ${uploadProgress.uploadedChunks}/${uploadProgress.totalChunks}`
   }
 
   const getStatusIcon = (status: string) => {
@@ -387,10 +410,12 @@ const ProjectPage: React.FC = () => {
               </h2>
               <button
                 onClick={() => {
+                  if (uploading) return
                   setShowUploadModal(false)
                   resetUploadForm()
                 }}
-                className="text-slate-400 hover:text-slate-600"
+                disabled={uploading}
+                className="text-slate-400 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -404,6 +429,7 @@ const ProjectPage: React.FC = () => {
                 <input
                   type="file"
                   accept=".zip"
+                  disabled={uploading}
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null
                     setUploadFile(file)
@@ -423,6 +449,25 @@ const ProjectPage: React.FC = () => {
                 </p>
               </div>
 
+              {uploadProgress && (
+                <div className="rounded-lg border border-primary-200 bg-primary-50 p-3 dark:border-primary-900/40 dark:bg-primary-900/20">
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium text-primary-700 dark:text-primary-300">
+                      {getUploadStageText()}
+                    </span>
+                    <span className="tabular-nums text-primary-700 dark:text-primary-300">
+                      {uploadProgress.percent}%
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white dark:bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-primary-600 transition-all duration-300"
+                      style={{ width: `${uploadProgress.percent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                   项目名称 *
@@ -430,6 +475,7 @@ const ProjectPage: React.FC = () => {
                 <input
                   type="text"
                   value={projectName}
+                  disabled={uploading}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="例如: my-web-app"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800"
@@ -442,6 +488,7 @@ const ProjectPage: React.FC = () => {
                 </label>
                 <textarea
                   value={description}
+                  disabled={uploading}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="简要描述这个项目..."
                   rows={3}
@@ -455,6 +502,7 @@ const ProjectPage: React.FC = () => {
                 </label>
                 <select
                   value={visibility}
+                  disabled={uploading}
                   onChange={(e) => setVisibility(e.target.value as any)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800"
                 >
@@ -469,9 +517,11 @@ const ProjectPage: React.FC = () => {
                   variant="outline"
                   className="flex-1"
                   onClick={() => {
+                    if (uploading) return
                     setShowUploadModal(false)
                     resetUploadForm()
                   }}
+                  disabled={uploading}
                 >
                   取消
                 </Button>

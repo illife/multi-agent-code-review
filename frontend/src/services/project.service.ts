@@ -2,6 +2,7 @@ import api from './api'
 import type {
   ApiResponse,
   ProjectUploadResponse,
+  ProjectUploadSession,
   ProjectInfo,
   ProjectStatusDTO,
   ProjectFile,
@@ -11,26 +12,143 @@ import type {
   ArchitectureRecommendations,
 } from '../types'
 
+const PROJECT_UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024
+
+export type ProjectUploadStage = 'initializing' | 'uploading' | 'completing'
+
+export interface ProjectUploadProgress {
+  stage: ProjectUploadStage
+  percent: number
+  uploadedChunks: number
+  totalChunks: number
+  projectId?: number
+}
+
+const uploadChunkWithRetry = async (
+  formData: FormData,
+  params: {
+    projectId: number
+    uploadId: string
+    chunkIndex: number
+    totalChunks: number
+  },
+  maxAttempts = 3
+) => {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await api.post<ApiResponse<string>>('/project/upload/chunk', formData, {
+        params,
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+      })
+
+      if (response.data.code !== 200) {
+        throw new Error(response.data.message || '分片上传失败')
+      }
+
+      return
+    } catch (error) {
+      lastError = error
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000))
+      }
+    }
+  }
+
+  throw lastError
+}
+
 export const projectService = {
   /**
-   * Upload ZIP project file
+   * Upload ZIP project file in chunks. The init step creates the project record first,
+   * so the project list can show a pending item before all bytes finish uploading.
    */
   async uploadProject(
     file: File,
     projectName: string,
     description?: string,
-    visibility = 'PRIVATE'
+    visibility = 'PRIVATE',
+    onProgress?: (progress: ProjectUploadProgress) => void
   ): Promise<ApiResponse<ProjectUploadResponse>> {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('projectName', projectName)
-    if (description) formData.append('description', description)
-    formData.append('visibility', visibility)
-    const response = await api.post<ApiResponse<ProjectUploadResponse>>('/project/upload/zip', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const totalChunks = Math.ceil(file.size / PROJECT_UPLOAD_CHUNK_SIZE)
+
+    onProgress?.({
+      stage: 'initializing',
+      percent: 0,
+      uploadedChunks: 0,
+      totalChunks,
+    })
+
+    const initResponse = await api.post<ApiResponse<ProjectUploadSession>>('/project/upload/chunk/init', {
+      projectName,
+      description,
+      visibility,
+      fileName: file.name,
+      fileSize: file.size,
+      totalChunks,
+      chunkSize: PROJECT_UPLOAD_CHUNK_SIZE,
+    }, {
+      timeout: 30000,
+    })
+
+    if (initResponse.data.code !== 200 || !initResponse.data.data) {
+      throw new Error(initResponse.data.message || '初始化上传失败')
+    }
+
+    const session = initResponse.data.data
+    onProgress?.({
+      stage: 'uploading',
+      percent: 0,
+      uploadedChunks: 0,
+      totalChunks,
+      projectId: session.projectId,
+    })
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+      const start = chunkIndex * PROJECT_UPLOAD_CHUNK_SIZE
+      const end = Math.min(start + PROJECT_UPLOAD_CHUNK_SIZE, file.size)
+      const chunk = file.slice(start, end)
+
+      const formData = new FormData()
+      formData.append('chunk', chunk, `${file.name}.part${chunkIndex}`)
+
+      await uploadChunkWithRetry(formData, {
+        projectId: session.projectId,
+        uploadId: session.uploadId,
+        chunkIndex,
+        totalChunks,
+      })
+
+      onProgress?.({
+        stage: 'uploading',
+        percent: Math.round(((chunkIndex + 1) / totalChunks) * 100),
+        uploadedChunks: chunkIndex + 1,
+        totalChunks,
+        projectId: session.projectId,
+      })
+    }
+
+    onProgress?.({
+      stage: 'completing',
+      percent: 100,
+      uploadedChunks: totalChunks,
+      totalChunks,
+      projectId: session.projectId,
+    })
+
+    const completeResponse = await api.post<ApiResponse<ProjectUploadResponse>>('/project/upload/chunk/complete', null, {
+      params: {
+        projectId: session.projectId,
+        uploadId: session.uploadId,
+        fileName: file.name,
+        totalChunks,
+      },
       timeout: 300000,
     })
-    return response.data
+
+    return completeResponse.data
   },
 
   /**
