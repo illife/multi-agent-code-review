@@ -89,7 +89,22 @@ public class GatewayConfig {
                                 .filter(authenticationFilter))
                         .uri(codeIntelligenceUrl))
 
-                .route("teaching-api", r -> r
+                .route("teaching-documents-api", r -> r
+                        .path(
+                                "/api/teaching/generate",
+                                "/api/teaching/personalized",
+                                "/api/teaching/documents",
+                                "/api/teaching/documents/**",
+                                "/api/teaching/published",
+                                "/api/teaching/search",
+                                "/api/teaching/stats"
+                        )
+                        .filters(f -> f
+                                .stripPrefix(1)
+                                .filter(authenticationFilter))
+                        .uri(knowledgeMentorUrl))
+
+                .route("teaching-learning-api", r -> r
                         .path("/api/teaching/**")
                         .filters(f -> f
                                 .stripPrefix(0)

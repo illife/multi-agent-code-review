@@ -120,6 +120,11 @@ public class ProjectController {
 
             log.info("Get project status: userId={}, projectId={}", userId, projectId);
 
+            Project project = projectService.getProjectById(projectId);
+            if (!canAccessProject(project, userId)) {
+                return Result.error(403, "No permission to access this project");
+            }
+
             ProjectService.ProjectStatusDTO status = projectService.getProjectStatus(projectId);
 
             return Result.success(status);
@@ -155,6 +160,11 @@ public class ProjectController {
             log.info("Get project files: userId={}, projectId={}, page={}, size={}",
                 userId, projectId, page, size);
 
+            Project project = projectService.getProjectById(projectId);
+            if (!canAccessProject(project, userId)) {
+                return Result.error(403, "No permission to access this project");
+            }
+
             Pageable pageable = PageRequest.of(page, size, Sort.by("filePath"));
             Page<ProjectService.ProjectFileDTO> filesPage = projectService.getProjectFiles(projectId, pageable);
 
@@ -185,6 +195,11 @@ public class ProjectController {
             Long userId = securityUtils.getCurrentUserId(request);
 
             log.info("Get project report: userId={}, projectId={}", userId, projectId);
+
+            Project project = projectService.getProjectById(projectId);
+            if (!canAccessProject(project, userId)) {
+                return Result.error(403, "No permission to access this project");
+            }
 
             ProjectService.ProjectReportDTO report = projectService.getProjectReport(projectId);
 
@@ -276,6 +291,11 @@ public class ProjectController {
 
             log.info("Generate project report: userId={}, projectId={}", userId, projectId);
 
+            Project project = projectService.getProjectById(projectId);
+            if (!canAccessProject(project, userId)) {
+                return Result.error(403, "No permission to access this project");
+            }
+
             projectService.generateProjectReport(projectId);
 
             return Result.success("Report generation started");
@@ -287,5 +307,9 @@ public class ProjectController {
             log.error("Failed to generate report", e);
             return Result.error("Failed to generate report: " + e.getMessage());
         }
+    }
+
+    private boolean canAccessProject(Project project, Long userId) {
+        return project.getUserId().equals(userId) || project.getVisibility() == Project.ProjectVisibility.PUBLIC;
     }
 }

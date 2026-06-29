@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
   FolderKanban,
   Upload,
@@ -13,6 +14,7 @@ import {
   X,
   Network,
   FileText,
+  FileSearch,
 } from 'lucide-react'
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
@@ -184,16 +186,6 @@ const ProjectPage: React.FC = () => {
     setVisibility('PRIVATE')
   }
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      PENDING: 'bg-slate-100 text-slate-700 border-slate-200',
-      ANALYZING: 'bg-primary-100 text-primary-700 border-primary-200',
-      COMPLETED: 'bg-success-100 text-success-700 border-success-200',
-      FAILED: 'bg-error-100 text-error-700 border-error-200',
-    }
-    return colors[status] || 'bg-slate-100 text-slate-700'
-  }
-
   const getStatusIcon = (status: string) => {
     const icons: Record<string, React.ReactNode> = {
       PENDING: <Clock className="h-4 w-4" />,
@@ -221,29 +213,78 @@ const ProjectPage: React.FC = () => {
     })
   }
 
+  const formatProgress = (progress?: number) => {
+    if (!progress) return 0
+    return progress <= 1 ? progress * 100 : progress
+  }
+
+  const getStatusVariant = (status: string): 'default' | 'success' | 'warning' | 'error' | 'info' => {
+    const variants: Record<string, 'default' | 'success' | 'warning' | 'error' | 'info'> = {
+      PENDING: 'default',
+      ANALYZING: 'info',
+      COMPLETED: 'success',
+      FAILED: 'error',
+    }
+    return variants[status] || 'default'
+  }
+
+  const dashboardStats = useMemo(() => {
+    return {
+      totalProjects: projects.length,
+      completedProjects: projects.filter((project) => project.status === 'COMPLETED').length,
+      analyzingProjects: projects.filter((project) => project.status === 'ANALYZING' || project.status === 'PENDING').length,
+      totalIssues: projects.reduce((sum, project) => sum + (project.totalIssues || 0), 0),
+    }
+  }, [projects])
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             项目管理
           </h1>
           <p className="mt-1 text-slate-600 dark:text-slate-400">
-            上传ZIP项目文件，进行全面的代码分析
+            上传 ZIP 项目包，分析完成后可直接进入文件级代码审查。
           </p>
         </div>
-        <Button onClick={() => setShowUploadModal(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          上传项目
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link to="/review">
+            <Button variant="outline">
+              <FileSearch className="h-4 w-4" />
+              代码审查
+            </Button>
+          </Link>
+          <Button onClick={() => setShowUploadModal(true)}>
+            <Plus className="h-4 w-4" />
+            上传项目
+          </Button>
+        </div>
       </div>
 
-      {/* Project List */}
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500">项目总数</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardStats.totalProjects}</p>
+        </div>
+        <div className="rounded-lg border border-success-200 bg-success-50 p-4 dark:border-success-900/40 dark:bg-success-900/20">
+          <p className="text-sm text-slate-500">已完成</p>
+          <p className="mt-1 text-2xl font-bold text-success-700 dark:text-success-300">{dashboardStats.completedProjects}</p>
+        </div>
+        <div className="rounded-lg border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/40 dark:bg-primary-900/20">
+          <p className="text-sm text-slate-500">进行中</p>
+          <p className="mt-1 text-2xl font-bold text-primary-700 dark:text-primary-300">{dashboardStats.analyzingProjects}</p>
+        </div>
+        <div className="rounded-lg border border-warning-200 bg-warning-50 p-4 dark:border-warning-900/40 dark:bg-warning-900/20">
+          <p className="text-sm text-slate-500">累计问题</p>
+          <p className="mt-1 text-2xl font-bold text-warning-700 dark:text-warning-300">{dashboardStats.totalIssues}</p>
+        </div>
+      </div>
+
       <Card variant="bordered">
         <CardHeader>
           <CardTitle>我的项目</CardTitle>
-          <CardDescription>已上传 {projects.length} 个项目</CardDescription>
+          <CardDescription>查看分析进度、文件清单和审查入口</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -299,7 +340,7 @@ const ProjectPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Badge size="sm" variant={getStatusColor(project.status) as any}>
+                    <Badge size="sm" variant={getStatusVariant(project.status)}>
                       {project.status === 'PENDING' && '等待中'}
                       {project.status === 'ANALYZING' && '分析中'}
                       {project.status === 'COMPLETED' && '已完成'}
@@ -314,10 +355,11 @@ const ProjectPage: React.FC = () => {
 
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => openProjectDetail(project)}
                     >
                       <Eye className="h-4 w-4" />
+                      详情
                     </Button>
 
                     <Button
@@ -362,7 +404,13 @@ const ProjectPage: React.FC = () => {
                 <input
                   type="file"
                   accept=".zip"
-                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null
+                    setUploadFile(file)
+                    if (file && !projectName.trim()) {
+                      setProjectName(file.name.replace(/\.zip$/i, ''))
+                    }
+                  }}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800"
                 />
                 {uploadFile && (
@@ -370,6 +418,9 @@ const ProjectPage: React.FC = () => {
                     已选择: {uploadFile.name} ({formatFileSize(uploadFile.size)})
                   </p>
                 )}
+                <p className="mt-1 text-xs text-slate-500">
+                  支持 100MB 以内 ZIP，上传后后台会异步分析，不需要停在当前页面等待。
+                </p>
               </div>
 
               <div>
@@ -431,7 +482,7 @@ const ProjectPage: React.FC = () => {
                   disabled={!uploadFile || !projectName.trim()}
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  上传
+                  {uploading ? '上传中' : '上传并分析'}
                 </Button>
               </div>
             </div>
@@ -498,7 +549,7 @@ const ProjectPage: React.FC = () => {
                     <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                       <p className="text-sm text-slate-600 dark:text-slate-400">进度</p>
                       <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-1">
-                        {projectStatus.progress.toFixed(0)}%
+                        {formatProgress(projectStatus.progress).toFixed(0)}%
                       </p>
                     </div>
                   </div>
@@ -526,6 +577,7 @@ const ProjectPage: React.FC = () => {
                           <th className="px-4 py-2 text-left font-medium text-slate-700 dark:text-slate-300">语言</th>
                           <th className="px-4 py-2 text-left font-medium text-slate-700 dark:text-slate-300">大小</th>
                           <th className="px-4 py-2 text-left font-medium text-slate-700 dark:text-slate-300">状态</th>
+                          <th className="px-4 py-2 text-right font-medium text-slate-700 dark:text-slate-300">审查</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -543,6 +595,20 @@ const ProjectPage: React.FC = () => {
                                 <Badge size="sm" variant="success">已分析</Badge>
                               ) : (
                                 <Badge size="sm" variant="default">待分析</Badge>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {file.reviewId ? (
+                                <Link to={`/review?reviewId=${file.reviewId}`}>
+                                  <Button size="sm" variant="outline">
+                                    <FileSearch className="h-4 w-4" />
+                                    查看
+                                  </Button>
+                                </Link>
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  {file.isAnalyzed ? '未生成' : '等待'}
+                                </span>
                               )}
                             </td>
                           </tr>

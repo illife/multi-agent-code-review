@@ -56,8 +56,19 @@ export const learningService = {
    * Get learning progress
    */
   async getLearningProgress(): Promise<ApiResponse<LearningProgress>> {
-    const response = await api.get<ApiResponse<LearningProgress>>('/learning/progress')
-    return response.data
+    const response = await api.get<ApiResponse<Record<string, any>>>('/learning/statistics')
+    const stats = response.data.data || {}
+
+    return {
+      ...response.data,
+      data: {
+        totalXp: Number(stats.totalXp || 0),
+        level: Number(stats.level || 0),
+        pathsCompleted: Number(stats.completedLearningPaths || stats.pathsCompleted || 0),
+        exercisesCompleted: Number(stats.totalSubmissions || stats.exercisesCompleted || 0),
+        streakDays: Number(stats.streakDays || 0),
+      },
+    }
   },
 
   /**

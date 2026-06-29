@@ -4,11 +4,12 @@ package com.codereview.ai.domain.consumer;
 import com.codereview.ai.domain.agent.shared.AgentExecutionContext;
 import com.codereview.ai.domain.agent.shared.AgentExecutionResult;
 import com.codereview.ai.domain.agent.shared.AgentOrchestrationService;
-import com.codereview.ai.domain.model.AgentTask;
 import com.codereview.ai.domain.model.CodeIssue;
 import com.codereview.ai.domain.model.CodeReview;
 import com.codereview.ai.domain.model.Project;
 import com.codereview.ai.domain.model.ProjectFile;
+import com.codereview.ai.domain.repository.CodeIssueRepository;
+import com.codereview.ai.domain.repository.CodeReviewRepository;
 import com.codereview.ai.domain.repository.ProjectFileRepository;
 import com.codereview.ai.domain.repository.ProjectRepository;
 import com.codereview.ai.domain.repository.ProjectReportRepository;
@@ -53,6 +54,8 @@ public class ProjectAnalysisConsumer {
     private final MinioService minioService;
     private final KafkaProducerService kafkaProducerService;
     private final AgentOrchestrationService agentOrchestrationService;
+    private final CodeReviewRepository codeReviewRepository;
+    private final CodeIssueRepository codeIssueRepository;
 
     // TODO: Add WebSocket notification support via event mechanism (domain -> api)
     // WebSocket notifications should be handled in the api module to avoid circular dependencies
@@ -149,6 +152,9 @@ public class ProjectAnalysisConsumer {
                     projectFileRepository.save(file);
 
                     processedFiles++;
+                    project.setAnalyzedFiles(processedFiles);
+                    project.setTotalIssues(totalIssues);
+                    projectRepository.save(project);
 
                     log.info("File analysis progress: projectId={}, fileId={}, fileName={}, progress={}/{}, issues={}",
                             projectId, file.getId(), file.getFileName(), processedFiles, projectFiles.size(), fileIssues);
@@ -213,6 +219,7 @@ public class ProjectAnalysisConsumer {
      * Reads file content and performs real code analysis with ArchitectureGuardian
      */
     private int analyzeFileWithAI(Project project, ProjectFile file, Path tempDir) {
+        CodeReview review = null;
         try {
             // Read file content from extracted temp directory
             Path filePath = tempDir.resolve(file.getFilePath());
@@ -236,6 +243,18 @@ public class ProjectAnalysisConsumer {
             log.info("Performing AI analysis: fileName={}, language={}, size={} bytes",
                     file.getFileName(), file.getLanguage(), codeContent.length());
 
+            review = CodeReview.builder()
+                    .userId(project.getUserId())
+                    .codeContent(codeContent)
+                    .language(file.getLanguage() != null ? file.getLanguage() : "UNKNOWN")
+                    .fileName(file.getFilePath())
+                    .visibility(project.getVisibility() != null ? project.getVisibility().name() : "PRIVATE")
+                    .status(CodeReview.ReviewStatus.PROCESSING)
+                    .totalIssues(0)
+                    .build();
+            review = codeReviewRepository.save(review);
+            file.setReviewId(review.getId());
+
             // Build execution context for AI analysis
             AgentExecutionContext context = AgentExecutionContext.builder()
                     .requestId("project-file-" + project.getId() + "-" + file.getId())
@@ -243,32 +262,79 @@ public class ProjectAnalysisConsumer {
                     .code(codeContent)
                     .language(file.getLanguage() != null ? file.getLanguage() : "UNKNOWN")
                     .filePath(file.getFilePath())
+                    .projectId(project.getId())
                     .build();
 
             // Execute AI code analysis
             List<AgentExecutionResult> results = agentOrchestrationService.executeCodeReview(context);
 
-            // Count issues found
-            int issueCount = 0;
+            List<CodeIssue> issues = new ArrayList<>();
             for (AgentExecutionResult result : results) {
-                if (result.isSuccess() && result.getIssues() != null) {
-                    issueCount += result.getIssues().size();
+                if (!result.isSuccess() || result.getIssues() == null) {
+                    continue;
+                }
 
-                    // Log issues found (we could save these to database in future)
-                    for (AgentExecutionResult.AgentIssue issue : result.getIssues()) {
-                        log.info("Issue found: file={}, severity={}, line={}, title={}",
-                                file.getFileName(), issue.getSeverity(), issue.getLineNumber(), issue.getTitle());
-                    }
+                for (AgentExecutionResult.AgentIssue agentIssue : result.getIssues()) {
+                    CodeIssue issue = convertAgentIssueToCodeIssue(agentIssue, review.getId());
+                    issues.add(issue);
+
+                    log.info("Issue found: file={}, severity={}, line={}, title={}",
+                            file.getFileName(), agentIssue.getSeverity(), agentIssue.getLineNumber(), agentIssue.getTitle());
                 }
             }
 
-            log.info("AI analysis complete: fileName={}, issuesFound={}", file.getFileName(), issueCount);
-            return issueCount;
+            if (!issues.isEmpty()) {
+                codeIssueRepository.saveAll(issues);
+            }
+
+            review.setStatus(CodeReview.ReviewStatus.COMPLETED);
+            review.setTotalIssues(issues.size());
+            codeReviewRepository.save(review);
+
+            file.setReviewId(review.getId());
+
+            log.info("AI analysis complete: fileName={}, reviewId={}, issuesFound={}",
+                    file.getFileName(), review.getId(), issues.size());
+            return issues.size();
 
         } catch (Exception e) {
             log.error("File analysis failed: fileId={}, fileName={}", file.getId(), file.getFileName(), e);
+            if (review != null) {
+                review.setStatus(CodeReview.ReviewStatus.FAILED);
+                codeReviewRepository.save(review);
+                file.setReviewId(review.getId());
+            }
             return 0;
         }
+    }
+
+    private CodeIssue convertAgentIssueToCodeIssue(AgentExecutionResult.AgentIssue agentIssue, Long reviewId) {
+        return CodeIssue.builder()
+                .reviewId(reviewId)
+                .title(agentIssue.getTitle())
+                .description(agentIssue.getDescription())
+                .severity(convertSeverity(agentIssue.getSeverity()))
+                .category(agentIssue.getCategory())
+                .lineNumber(agentIssue.getLineNumber())
+                .codeSnippet(agentIssue.getCodeSnippet())
+                .suggestion(agentIssue.getSuggestion())
+                .teachingExplanation(agentIssue.getTeachingExplanation())
+                .agentType(agentIssue.getAgentType())
+                .build();
+    }
+
+    private CodeIssue.Severity convertSeverity(AgentExecutionResult.Severity severity) {
+        if (severity == null) {
+            return CodeIssue.Severity.LOW;
+        }
+
+        return switch (severity) {
+            case CRITICAL -> CodeIssue.Severity.CRITICAL;
+            case HIGH -> CodeIssue.Severity.HIGH;
+            case MEDIUM -> CodeIssue.Severity.MEDIUM;
+            case LOW -> CodeIssue.Severity.LOW;
+            case INFO -> CodeIssue.Severity.INFO;
+        };
     }
 
     /**

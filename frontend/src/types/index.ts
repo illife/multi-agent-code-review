@@ -54,8 +54,8 @@ export interface CodeReviewResponse {
 export interface ReviewIssue {
   id: number
   reviewId: number
-  agentType: 'CODE_STANDARDS_INSPECTOR' | 'ARCHITECTURE_GUARDIAN' | 'SECURITY_AUDITOR' | 'PERFORMANCE_OPTIMIZER'
-  severity: 'HIGH' | 'MEDIUM' | 'LOW'
+  agentType: 'CODE_STANDARDS_INSPECTOR' | 'ARCHITECTURE_GUARDIAN' | 'SECURITY_AUDITOR' | 'PERFORMANCE_OPTIMIZER' | string
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'
   category: string
   title: string
   description: string

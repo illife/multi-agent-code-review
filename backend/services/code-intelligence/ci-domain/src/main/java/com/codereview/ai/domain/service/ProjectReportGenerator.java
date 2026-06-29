@@ -125,6 +125,9 @@ public class ProjectReportGenerator {
             metrics.put("hasArchitecturalIssues", architectureInfo.isHasArchitecturalIssues());
             metrics.put("architecturalIssueCount", architectureInfo.getArchitecturalIssues() != null ?
                     architectureInfo.getArchitecturalIssues().size() : 0);
+            metrics.put("fileIssueDetails", architectureInfo.getFileIssueDetails());
+            metrics.put("severityDistribution", architectureInfo.getSeverityDistribution());
+            metrics.put("fullMarkdownReport", architectureInfo.getFullMarkdownReport());
         }
 
         // Combine architecture recommendations with code quality recommendations

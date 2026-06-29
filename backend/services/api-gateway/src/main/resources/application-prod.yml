@@ -22,8 +22,8 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 50MB
-      max-request-size: 50MB
+      max-file-size: 100MB
+      max-request-size: 100MB
       file-size-threshold: 1MB
 
   # Gateway配置
@@ -89,13 +89,19 @@ spring:
           filters:
             - StripPrefix=1
 
+        # 教学文档服务
+        - id: teaching-documents-service
+          uri: ${KNOWLEDGE_MENTOR_SERVICE_URL:http://knowledge-mentor-api:8080}
+          predicates:
+            - Path=/api/teaching/generate, /api/teaching/personalized, /api/teaching/documents, /api/teaching/documents/**, /api/teaching/published, /api/teaching/search, /api/teaching/stats
+          filters:
+            - StripPrefix=1
+
         # 代码智能服务
         - id: code-intelligence-service
           uri: ${CODE_INTELLIGENCE_SERVICE_URL:http://code-intelligence-api:8081}
           predicates:
-            - Path=/api/agent/**, /api/learning/**, /api/projects/**, /api/review/**, /api/analysis/**
-          filters:
-            - StripPrefix=1
+            - Path=/api/agent/**, /api/learning/**, /api/project/**, /api/projects/**, /api/review/**, /api/analysis/**, /api/teaching/**, /api/architecture/**
 
   # Redis配置（用于限流）
   data:

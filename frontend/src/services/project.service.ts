@@ -28,6 +28,7 @@ export const projectService = {
     formData.append('visibility', visibility)
     const response = await api.post<ApiResponse<ProjectUploadResponse>>('/project/upload/zip', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
     })
     return response.data
   },

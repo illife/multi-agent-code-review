@@ -238,6 +238,9 @@ public interface ProjectService {
         private Map<String, Object> metrics;
         private String recommendations;
         private Map<String, Object> fileStatistics;
+        private String fullMarkdownReport;
+        private Object fileIssueDetails;
+        private Map<String, Object> severityDistribution;
         private LocalDateTime createdAt;
 
         public Long getProjectId() { return projectId; }
@@ -254,6 +257,12 @@ public interface ProjectService {
         public void setRecommendations(String recommendations) { this.recommendations = recommendations; }
         public Map<String, Object> getFileStatistics() { return fileStatistics; }
         public void setFileStatistics(Map<String, Object> fileStatistics) { this.fileStatistics = fileStatistics; }
+        public String getFullMarkdownReport() { return fullMarkdownReport; }
+        public void setFullMarkdownReport(String fullMarkdownReport) { this.fullMarkdownReport = fullMarkdownReport; }
+        public Object getFileIssueDetails() { return fileIssueDetails; }
+        public void setFileIssueDetails(Object fileIssueDetails) { this.fileIssueDetails = fileIssueDetails; }
+        public Map<String, Object> getSeverityDistribution() { return severityDistribution; }
+        public void setSeverityDistribution(Map<String, Object> severityDistribution) { this.severityDistribution = severityDistribution; }
         public LocalDateTime getCreatedAt() { return createdAt; }
         public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     }

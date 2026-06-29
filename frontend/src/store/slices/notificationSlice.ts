@@ -70,7 +70,7 @@ const notificationSlice = createSlice({
         type: 'success',
         title: '代码审查完成',
         message: `文件 "${action.payload.fileName}" 的代码审查已完成`,
-        link: `/review?id=${action.payload.reviewId}`,
+        link: `/review?reviewId=${action.payload.reviewId}`,
         read: false,
         createdAt: new Date().toISOString(),
       }
@@ -83,7 +83,7 @@ const notificationSlice = createSlice({
         type: 'info',
         title: '教学报告已生成',
         message: '您的个性化教学报告已生成完成',
-        link: `/review?id=${action.payload.reviewId}`,
+        link: `/review?reviewId=${action.payload.reviewId}`,
         read: false,
         createdAt: new Date().toISOString(),
       }

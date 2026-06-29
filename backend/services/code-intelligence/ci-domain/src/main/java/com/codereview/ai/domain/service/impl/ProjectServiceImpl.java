@@ -9,6 +9,7 @@ import com.codereview.ai.domain.repository.ProjectFileRepository;
 import com.codereview.ai.domain.repository.ProjectReportRepository;
 import com.codereview.ai.domain.repository.ProjectRepository;
 import com.codereview.ai.domain.service.ProjectService;
+import com.codereview.ai.domain.service.ProjectReportGenerator;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ObjectMapper objectMapper;
     private final MinioService minioService;
     private final KafkaProducerService kafkaProducerService;
+    private final ProjectReportGenerator projectReportGenerator;
 
     @Override
     @Transactional
@@ -155,6 +157,9 @@ public class ProjectServiceImpl implements ProjectService {
         List<ProjectFileDTO> allFiles = getAllProjectFiles(projectId);
 
         int start = (int) pageable.getOffset();
+        if (start >= allFiles.size()) {
+            return new PageImpl<>(List.of(), pageable, allFiles.size());
+        }
         int end = Math.min((start + pageable.getPageSize()), allFiles.size());
         List<ProjectFileDTO> pagedFiles = allFiles.subList(start, end);
 
@@ -194,6 +199,16 @@ public class ProjectServiceImpl implements ProjectService {
             dto.setMetrics(metrics);
             dto.setRecommendations(report.getRecommendations());
             dto.setFileStatistics(fileStats);
+            dto.setFullMarkdownReport((String) metrics.get("fullMarkdownReport"));
+            dto.setFileIssueDetails(metrics.get("fileIssueDetails"));
+            Object severityDistribution = metrics.get("severityDistribution");
+            if (severityDistribution instanceof Map<?, ?> severityMap) {
+                dto.setSeverityDistribution(severityMap.entrySet().stream()
+                    .collect(Collectors.toMap(
+                        entry -> String.valueOf(entry.getKey()),
+                        Map.Entry::getValue
+                    )));
+            }
             dto.setCreatedAt(report.getCreatedAt());
 
             return dto;
@@ -231,23 +246,10 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional
     public void generateProjectReport(Long projectId) {
-        // TODO: Implement report generation in ProjectReportGenerator
         log.info("Generating project report: projectId={}", projectId);
 
-        // Placeholder - will be implemented by ProjectReportGenerator
         Project project = getProjectById(projectId);
-
-        ProjectReport report = ProjectReport.builder()
-            .projectId(projectId)
-            .summary("Project analysis completed. " + project.getAnalyzedFiles() + " files analyzed.")
-            .overallScore(75) // Placeholder
-            .riskLevel("MEDIUM") // Placeholder
-            .metrics("{}")
-            .recommendations("Review critical issues first.")
-            .fileStatistics("{}")
-            .build();
-
-        projectReportRepository.save(report);
+        projectReportGenerator.generateReport(projectId);
 
         // Update project status
         project.setStatus(Project.ProjectStatus.COMPLETED);
