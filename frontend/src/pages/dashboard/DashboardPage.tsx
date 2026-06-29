@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  BookOpen,
   Code2,
   FolderKanban,
   GraduationCap,
@@ -9,6 +10,8 @@ import {
   Clock,
   AlertCircle,
   ArrowRight,
+  MessageSquare,
+  Search,
 } from 'lucide-react'
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
@@ -39,6 +42,45 @@ interface PathItem {
   difficulty: string
   progress: number
 }
+
+const demoModules = [
+  {
+    title: '代码审查',
+    description: '上传代码片段或项目，生成可追踪的问题清单与改进建议。',
+    path: '/review',
+    icon: Code2,
+    tone: 'bg-teal-50 text-teal-700 border-teal-200',
+  },
+  {
+    title: '知识库文档',
+    description: '上传文档后完成解析、切块、向量化、检索索引与问答联动。',
+    path: '/knowledge/documents',
+    icon: BookOpen,
+    tone: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  {
+    title: '智能问答',
+    description: '基于已索引文档进行上下文问答，适合现场展示 RAG 流程。',
+    path: '/knowledge/qa',
+    icon: MessageSquare,
+    tone: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  {
+    title: '项目管理',
+    description: '集中展示项目级分析结果，串起工程化与业务流程。',
+    path: '/projects',
+    icon: FolderKanban,
+    tone: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+]
+
+const architectureSteps = [
+  '前端工作台',
+  'API Gateway 鉴权',
+  '微服务业务处理',
+  'Kafka 异步任务',
+  'ES / MinIO / Postgres 持久化',
+]
 
 const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
@@ -199,16 +241,89 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          欢迎回来, {localStorage.getItem('username') || '开发者'}!
-        </h1>
-        <p className="mt-1 text-slate-600 dark:text-slate-400">
-          这是你的学习概览和最新动态
-        </p>
-      </div>
+    <div className="bg-[#f7f5ef] p-5 text-slate-950 dark:bg-slate-950 lg:p-8">
+      <section className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-[#111820] text-white shadow-[0_24px_90px_rgba(15,23,32,0.18)]">
+        <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
+          <div>
+            <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 py-1 text-sm text-slate-200">
+              <TrendingUp className="h-4 w-4 text-[#facc15]" />
+              在线演示环境 · codeview.top
+            </div>
+            <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-normal">
+              欢迎回来，{localStorage.getItem('username') || '开发者'}
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300">
+              这里是 CodeView AI 的演示工作台。它把代码审查、知识库检索、文档问答和项目管理串成一个可讲清楚的全栈 AI 工程闭环。
+            </p>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              <Link
+                to="/review"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#5eead4] px-5 text-sm font-bold text-slate-950 transition hover:bg-[#99f6e4]"
+              >
+                提交代码审查
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/knowledge/documents"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/10 px-5 text-sm font-semibold text-white transition hover:bg-white/15"
+              >
+                上传知识库文档
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/[0.07] p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm uppercase text-slate-400">Architecture</p>
+                <p className="mt-2 text-lg font-bold">演示链路</p>
+              </div>
+              <div className="rounded-lg bg-[#facc15] p-2 text-slate-950">
+                <Search className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
+              {architectureSteps.map((step, index) => (
+                <div key={step} className="flex items-center gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-[#5eead4]">
+                    {index + 1}
+                  </span>
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="w-44 text-sm text-slate-200">{step}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 rounded-lg bg-black/20 p-4 text-sm leading-6 text-slate-300">
+              面试时可以按这条链路说明：前端触发业务，网关鉴权分发，服务处理后通过 Kafka 异步解析，最终落到 Postgres、MinIO 和 Elasticsearch。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {demoModules.map((module) => {
+          const Icon = module.icon
+          return (
+            <Link
+              key={module.title}
+              to={module.path}
+              className="group rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className={`mb-4 inline-flex rounded-lg border p-3 ${module.tone}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-slate-950 dark:text-slate-100">{module.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{module.description}</p>
+                </div>
+                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-slate-700" />
+              </div>
+            </Link>
+          )
+        })}
+      </section>
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -347,7 +462,7 @@ const DashboardPage: React.FC = () => {
         <Card variant="bordered">
           <CardHeader>
             <CardTitle>快速开始</CardTitle>
-            <CardDescription>选择一个操作开始你的学习之旅</CardDescription>
+            <CardDescription>选择一个真实可用的演示动作</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -365,41 +480,41 @@ const DashboardPage: React.FC = () => {
               </Link>
 
               <Link
-                to="/learning"
+                to="/knowledge/documents"
                 className="flex flex-col items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-success-300 hover:bg-success-50 transition-all cursor-pointer group"
               >
                 <div className="rounded-xl bg-success-100 p-3 text-success-600 group-hover:bg-success-600 group-hover:text-white transition-colors">
-                  <GraduationCap className="h-6 w-6" />
+                  <BookOpen className="h-6 w-6" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium text-slate-900 dark:text-slate-100">开始学习路径</p>
-                  <p className="text-sm text-slate-500">系统化学习计划</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">上传知识文档</p>
+                  <p className="text-sm text-slate-500">解析并建立检索索引</p>
                 </div>
               </Link>
 
               <Link
-                to="/teaching/exercises"
+                to="/knowledge/qa"
                 className="flex flex-col items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-warning-300 hover:bg-warning-50 transition-all cursor-pointer group"
               >
                 <div className="rounded-xl bg-warning-100 p-3 text-warning-600 group-hover:bg-warning-600 group-hover:text-white transition-colors">
-                  <Clock className="h-6 w-6" />
+                  <MessageSquare className="h-6 w-6" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium text-slate-900 dark:text-slate-100">练习题挑战</p>
-                  <p className="text-sm text-slate-500">巩固编程技能</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">知识库问答</p>
+                  <p className="text-sm text-slate-500">展示 RAG 查询链路</p>
                 </div>
               </Link>
 
               <Link
-                to="/agents"
+                to="/projects"
                 className="flex flex-col items-center gap-3 p-4 rounded-lg border border-slate-200 hover:border-error-300 hover:bg-error-50 transition-all cursor-pointer group"
               >
                 <div className="rounded-xl bg-error-100 p-3 text-error-600 group-hover:bg-error-600 group-hover:text-white transition-colors">
                   <FolderKanban className="h-6 w-6" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium text-slate-900 dark:text-slate-100">AI 智能体</p>
-                  <p className="text-sm text-slate-500">8个Agent协作</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">项目管理</p>
+                  <p className="text-sm text-slate-500">查看项目分析结果</p>
                 </div>
               </Link>
             </div>

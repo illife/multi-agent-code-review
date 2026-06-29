@@ -3,9 +3,10 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Bot, ArrowRight, CheckCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle, Fingerprint } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
+import AuthShowcase from '../../components/auth/AuthShowcase'
 import { authService } from '../../services/auth.service'
 import type { RegisterRequest } from '../../types'
 
@@ -21,6 +22,13 @@ const registerSchema = z.object({
 })
 
 type RegisterFormData = z.infer<typeof registerSchema>
+
+const onboardingHighlights = [
+  '代码审查、知识库、问答和学习路径协同',
+  '文档上传后自动解析、切块、向量化并建立索引',
+  '支持项目级分析报告，适合面试现场演示架构闭环',
+  '新服务器独立数据，不依赖历史账号或旧环境',
+]
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate()
@@ -45,13 +53,11 @@ const RegisterPage: React.FC = () => {
       if (response.code === 200 && response.data) {
         const { accessToken, refreshToken, userId, username } = response.data
 
-        // Store tokens - 统一使用 'token' 键
         localStorage.setItem('token', accessToken)
         localStorage.setItem('refreshToken', refreshToken)
         localStorage.setItem('userId', userId.toString())
         localStorage.setItem('username', username)
 
-        // Store user info
         const userInfo = {
           id: userId,
           username,
@@ -74,114 +80,104 @@ const RegisterPage: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-8">
-      <div className="w-full max-w-md">
-        {/* Logo & Title */}
-        <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg">
-            <Bot className="h-8 w-8" />
+    <main className="grid min-h-screen bg-[#f6f3ec] text-slate-950 lg:grid-cols-[1.08fr_0.92fr]">
+      <AuthShowcase />
+
+      <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <div className="w-full max-w-[500px]">
+          <div className="mb-7">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white/70 px-3 py-1 text-sm text-slate-600 shadow-sm">
+              <Fingerprint className="h-4 w-4 text-teal-700" />
+              创建一个新的演示身份
+            </div>
+            <h1 className="text-4xl font-black tracking-normal text-slate-950">创建账号</h1>
+            <p className="mt-3 text-base leading-7 text-slate-600">
+              当前服务器是全新环境，注册后即可上传文档、体验问答、查看项目分析与代码审查。
+            </p>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-            创建账号
-          </h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-400">
-            加入 CodeReview AI，开启智能编程之旅
+
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,32,0.12)] sm:p-8">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="用户名 *"
+                  placeholder="选择用户名"
+                  error={errors.username?.message}
+                  className="h-12 border-slate-300 bg-slate-50"
+                  {...register('username')}
+                />
+                <Input
+                  label="真实姓名"
+                  placeholder="你的名字"
+                  className="h-12 border-slate-300 bg-slate-50"
+                  {...register('fullName')}
+                />
+              </div>
+
+              <Input
+                label="邮箱 *"
+                type="email"
+                placeholder="your@email.com"
+                error={errors.email?.message}
+                className="h-12 border-slate-300 bg-slate-50"
+                {...register('email')}
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="密码 *"
+                  type="password"
+                  placeholder="至少6个字符"
+                  error={errors.password?.message}
+                  className="h-12 border-slate-300 bg-slate-50"
+                  {...register('password')}
+                />
+
+                <Input
+                  label="确认密码 *"
+                  type="password"
+                  placeholder="再次输入密码"
+                  error={errors.confirmPassword?.message}
+                  className="h-12 border-slate-300 bg-slate-50"
+                  {...register('confirmPassword')}
+                />
+              </div>
+
+              <div className="grid gap-2 rounded-lg bg-[#f6f3ec] p-4">
+                {onboardingHighlights.map((feature) => (
+                  <div key={feature} className="flex items-center gap-2 text-sm text-slate-700">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-teal-700" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Button type="submit" className="h-12 w-full bg-slate-950 text-white hover:bg-slate-800" loading={loading}>
+                创建账号并进入工作台
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center text-sm text-slate-600">
+              已有账号？{' '}
+              <Link to="/login" className="font-semibold text-teal-700 hover:text-teal-800">
+                立即登录
+              </Link>
+            </div>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-slate-500">
+            注册即表示你理解这是面试演示环境，历史数据不会从旧服务器迁移。
           </p>
         </div>
-
-        {/* Register Form */}
-        <div className="rounded-xl bg-white dark:bg-slate-900 p-8 shadow-md">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            {error && (
-              <div className="rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-900 dark:text-error-300">
-                {error}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="用户名 *"
-                placeholder="选择用户名"
-                error={errors.username?.message}
-                {...register('username')}
-              />
-              <Input
-                label="真实姓名"
-                placeholder="你的名字"
-                {...register('fullName')}
-              />
-            </div>
-
-            <Input
-              label="邮箱 *"
-              type="email"
-              placeholder="your@email.com"
-              error={errors.email?.message}
-              {...register('email')}
-            />
-
-            <Input
-              label="密码 *"
-              type="password"
-              placeholder="至少6个字符"
-              error={errors.password?.message}
-              {...register('password')}
-            />
-
-            <Input
-              label="确认密码 *"
-              type="password"
-              placeholder="再次输入密码"
-              error={errors.confirmPassword?.message}
-              {...register('confirmPassword')}
-            />
-
-            {/* Features */}
-            <div className="space-y-2 pt-2">
-              {[
-                '8个AI智能体协作分析',
-                '个性化学习路径推荐',
-                '丰富的代码题库练习',
-                '成就系统和排行榜',
-              ].map((feature) => (
-                <div key={feature} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <CheckCircle className="h-4 w-4 text-success-500 flex-shrink-0" />
-                  <span>{feature}</span>
-                </div>
-              ))}
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full"
-              loading={loading}
-            >
-              创建账号
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
-            已有账号？{' '}
-            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
-              立即登录
-            </Link>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p className="mt-8 text-center text-xs text-slate-500">
-          注册即表示您同意我们的{' '}
-          <Link to="/terms" className="text-primary-600 hover:underline">
-            服务条款
-          </Link>{' '}
-          和{' '}
-          <Link to="/privacy" className="text-primary-600 hover:underline">
-            隐私政策
-          </Link>
-        </p>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }
 
