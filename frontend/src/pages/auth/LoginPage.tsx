@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -8,6 +9,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import AuthShowcase from '../../components/auth/AuthShowcase'
 import { authService } from '../../services/auth.service'
+import { setToken, setUser } from '../../store/slices/authSlice'
 import type { LoginRequest } from '../../types'
 
 const loginSchema = z.object({
@@ -19,6 +21,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
@@ -50,6 +53,11 @@ const LoginPage: React.FC = () => {
           role: 'USER',
         }
         localStorage.setItem('user', JSON.stringify(user))
+        localStorage.setItem('userId', user.id)
+        localStorage.setItem('username', user.username)
+
+        dispatch(setToken(accessToken))
+        dispatch(setUser(user))
 
         setTimeout(() => {
           navigate('/dashboard')

@@ -167,10 +167,12 @@ const ProjectPage: React.FC = () => {
           setSelectedProject(null)
           setShowDetailModal(false)
         }
+      } else {
+        alert(response.message || '删除失败：只有项目创建者可以删除项目')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Delete failed:', error)
-      alert('删除失败，请重试')
+      alert(error.response?.data?.message || error.message || '删除失败：只有项目创建者可以删除项目')
     }
   }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -8,6 +9,7 @@ import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import AuthShowcase from '../../components/auth/AuthShowcase'
 import { authService } from '../../services/auth.service'
+import { setToken, setUser } from '../../store/slices/authSlice'
 import type { RegisterRequest } from '../../types'
 
 const registerSchema = z.object({
@@ -32,6 +34,7 @@ const onboardingHighlights = [
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
@@ -67,6 +70,14 @@ const RegisterPage: React.FC = () => {
           isActive: true,
         }
         localStorage.setItem('user', JSON.stringify(userInfo))
+
+        dispatch(setToken(accessToken))
+        dispatch(setUser({
+          id: userId.toString(),
+          username,
+          email: data.email,
+          role: 'USER',
+        }))
 
         navigate('/dashboard')
       } else {

@@ -93,6 +93,8 @@ export const logoutAsync = createAsyncThunk<void, void, { state: RootState }>(
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('username');
     }
   }
 );
@@ -120,6 +122,8 @@ export const fetchCurrentUserAsync = createAsyncThunk<
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('username');
       return rejectWithValue(error.message || 'Failed to fetch user');
     }
   }
@@ -142,6 +146,9 @@ const authSlice = createSlice({
       state.error = null;
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('username');
     },
 
     /**

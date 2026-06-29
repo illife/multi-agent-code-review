@@ -4,8 +4,8 @@ import { Search, LogOut, Menu } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import Button from '../ui/Button'
 import NotificationDropdown from './NotificationDropdown'
-import { useSelector } from 'react-redux'
-import { selectUser } from '../../store/slices/authSlice'
+import { useDispatch, useSelector } from 'react-redux'
+import { logout, selectUser } from '../../store/slices/authSlice'
 
 interface TopbarProps {
   sidebarCollapsed: boolean
@@ -14,12 +14,11 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ sidebarCollapsed, onMenuClick }) => {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const user = useSelector(selectUser)
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
+    dispatch(logout())
     navigate('/login')
   }
 
