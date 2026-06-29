@@ -55,6 +55,7 @@ public class AuthenticationFilter implements GatewayFilter, Ordered {
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/auth/verify-email",
+            "/api/auth/health",
             "/api/auth/validate",
             "/api/health",
             "/actuator",
