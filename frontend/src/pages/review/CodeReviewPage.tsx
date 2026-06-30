@@ -12,6 +12,7 @@ import {
   ExternalLink,
   FileSearch,
   FolderKanban,
+  GraduationCap,
   Info,
   Loader2,
   Play,
@@ -368,8 +369,29 @@ const CodeReviewPage: React.FC = () => {
       ARCHITECTURE_GUARDIAN: <Zap className="h-5 w-5" />,
       SECURITY_AUDITOR: <Bug className="h-5 w-5" />,
       PERFORMANCE_OPTIMIZER: <Clock className="h-5 w-5" />,
+      TEACHING_MENTOR: <GraduationCap className="h-5 w-5" />,
     }
     return icons[agentType] || <Code2 className="h-5 w-5" />
+  }
+
+  const teachingAgentStatus: AgentExecution['status'] = teachingReport
+    ? 'COMPLETED'
+    : teachingReportLoading
+      ? 'RUNNING'
+      : reviewStatus === 'COMPLETED'
+        ? 'PENDING'
+        : reviewStatus === 'FAILED'
+          ? 'FAILED'
+          : 'PENDING'
+
+  const getAgentStatusText = (status: AgentExecution['status']) => {
+    const text: Record<AgentExecution['status'], string> = {
+      PENDING: '等待生成',
+      RUNNING: '生成中',
+      COMPLETED: '已完成',
+      FAILED: '未生成',
+    }
+    return text[status]
   }
 
   const getSeverityColor = (severity: string) => {
@@ -664,8 +686,8 @@ const CodeReviewPage: React.FC = () => {
           {agents.length > 0 && (
             <Card variant="bordered">
               <CardHeader>
-                <CardTitle>智能体执行状态</CardTitle>
-                <CardDescription>{agents.length} 个检查角色</CardDescription>
+                <CardTitle>AI 协作状态</CardTitle>
+                <CardDescription>{agents.length} 个审查 Agent + 1 个教学报告 Agent</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -690,6 +712,22 @@ const CodeReviewPage: React.FC = () => {
                       </Badge>
                     </div>
                   ))}
+                  <div className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                    <div className="rounded-full bg-slate-100 p-2 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {getAgentIcon('TEACHING_MENTOR')}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        教学导师
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {getAgentStatusText(teachingAgentStatus)}
+                      </p>
+                    </div>
+                    <Badge size="sm" variant={teachingReport ? 'success' : teachingReportLoading ? 'info' : 'default'}>
+                      报告
+                    </Badge>
+                  </div>
                 </div>
               </CardContent>
             </Card>

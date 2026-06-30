@@ -207,7 +207,8 @@ public class AgentAutoConfiguration {
             List<String> inspectors = List.of(
                     "CODE_STANDARDS_INSPECTOR",
                     "ARCHITECTURE_GUARDIAN",
-                    "SECURITY_AUDITOR"
+                    "SECURITY_AUDITOR",
+                    "PERFORMANCE_OPTIMIZER"
             );
 
             return inspectors.parallelStream()
