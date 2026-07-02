@@ -102,7 +102,10 @@ const DocumentDetailPage: React.FC = () => {
     if (!confirm('确定要删除此文档吗？')) return
 
     try {
-      await knowledgeService.deleteDocument(docId)
+      const response = await knowledgeService.deleteDocument(docId)
+      if (response.code !== 200) {
+        throw new Error(response.message || '删除文档失败')
+      }
       navigate('/knowledge/documents')
     } catch (error) {
       console.error('Failed to delete document:', error)

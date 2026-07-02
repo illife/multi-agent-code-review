@@ -248,7 +248,10 @@ const DocumentListPage: React.FC = () => {
     if (!confirm('确定要删除此文档吗？')) return
 
     try {
-      await knowledgeService.deleteDocument(documentId)
+      const response = await knowledgeService.deleteDocument(documentId)
+      if (response.code !== 200) {
+        throw new Error(response.message || '删除文档失败')
+      }
       setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
     } catch (error) {
       console.error('Failed to delete document:', error)

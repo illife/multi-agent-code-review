@@ -191,9 +191,18 @@ public class DocumentServiceImpl implements DocumentService {
     @Transactional
     public void deleteDocument(Long documentId) throws Exception {
         Document document = getDocumentById(documentId);
+        String storagePath = document.getStoragePath();
         log.info("开始删除文档: documentId={}", documentId);
 
-        // 1. 从Elasticsearch删除文档块
+        // 1. 先删除数据库分块和文档记录，避免外部清理成功但数据库记录仍残留。
+        documentChunkRepository.deleteByDocumentId(documentId);
+        log.info("已删除数据库文档块: documentId={}", documentId);
+
+        documentRepository.delete(document);
+        documentRepository.flush();
+        log.info("已删除数据库文档记录: documentId={}", documentId);
+
+        // 2. 从Elasticsearch删除文档块
         try {
             elasticsearchService.deleteDocumentChunks(documentId);
             log.info("已从Elasticsearch删除文档块: documentId={}", documentId);
@@ -202,24 +211,21 @@ public class DocumentServiceImpl implements DocumentService {
             // 继续执行，不影响其他清理操作
         }
 
-        // 2. 从MinIO删除文件
-        if (document.getStoragePath() != null && !document.getStoragePath().isEmpty()) {
+        // 3. 从MinIO删除文件
+        if (storagePath != null && !storagePath.isEmpty()) {
             try {
-                String[] parts = document.getStoragePath().split("/", 2);
+                String[] parts = storagePath.split("/", 2);
                 if (parts.length == 2) {
                     String bucketName = parts[0];
                     String objectName = parts[1];
                     minioStorageService.deleteFile(bucketName, objectName);
-                    log.info("已从MinIO删除文件: {}", document.getStoragePath());
+                    log.info("已从MinIO删除文件: {}", storagePath);
                 }
             } catch (Exception e) {
-                log.error("从MinIO删除文件失败: storagePath={}", document.getStoragePath(), e);
+                log.error("从MinIO删除文件失败: storagePath={}", storagePath, e);
                 // 继续执行，不影响数据库删除
             }
         }
-
-        // 3. 删除数据库记录
-        documentRepository.delete(document);
 
         log.info("文档删除完成: documentId={}", documentId);
     }
