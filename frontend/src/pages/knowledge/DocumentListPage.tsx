@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Archive,
+  BookOpen,
+  CheckCircle,
+  Clock3,
+  Database,
   FileText,
   Upload,
   Search,
@@ -16,6 +21,7 @@ import Card, { CardContent } from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import WorkbenchHero from '../../components/ui/WorkbenchHero'
 import { knowledgeService } from '../../services/knowledge.service'
 import type { Document } from '../../types'
 
@@ -112,20 +118,27 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onClose, onUploadComple
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">上传文档</h3>
-          <p className="text-sm text-slate-500 mt-1">支持的格式：PDF、DOC、DOCX、TXT、MD、PPT、PPTX、XLS、XLSX（最大100MB）</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md overflow-hidden rounded-lg border border-white/10 bg-slate-950 text-slate-100 shadow-[0_30px_100px_rgba(2,6,23,0.65)]">
+        <div className="border-b border-white/10 bg-white/[0.04] p-6">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-2 text-emerald-300">
+              <Upload className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-white">上传文档</h3>
+              <p className="mt-1 text-sm text-slate-400">解析、切块、向量化后进入知识库索引</p>
+            </div>
+          </div>
         </div>
 
         <div className="p-6">
           {!file ? (
             <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              className={`cursor-pointer rounded-lg border border-dashed p-8 text-center transition-colors ${
                 dragOver
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                  : 'border-slate-300 dark:border-slate-600 hover:border-primary-400'
+                  ? 'border-emerald-300 bg-emerald-300/10'
+                  : 'border-white/15 bg-white/[0.04] hover:border-emerald-300/60 hover:bg-white/[0.07]'
               }`}
               onDragOver={(e) => {
                 e.preventDefault()
@@ -150,22 +163,23 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onClose, onUploadComple
                   if (selectedFile) handleFileSelect(selectedFile)
                 }}
               />
-              <Upload className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-              <p className="text-slate-600 dark:text-slate-400 mb-2">
+              <Upload className="mx-auto mb-4 h-12 w-12 text-emerald-300" />
+              <p className="mb-2 text-slate-200">
                 拖放文件到此处，或点击选择文件
               </p>
-              <p className="text-xs text-slate-500">最大文件大小：100MB</p>
+              <p className="text-xs text-slate-500">PDF、Word、Markdown、PPT、Excel、图片，最大 100MB</p>
             </div>
           ) : (
-            <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
+            <div className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/[0.05] p-4">
               <div className="flex-shrink-0">{getFileIcon(file.name)}</div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{file.name}</p>
+                <p className="truncate font-medium text-white">{file.name}</p>
                 <p className="text-sm text-slate-500">{formatFileSize(file.size)}</p>
               </div>
               <button
                 onClick={() => setFile(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-rose-300"
+                aria-label="移除已选择文件"
               >
                 <Trash2 className="h-5 w-5" />
               </button>
@@ -174,13 +188,13 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onClose, onUploadComple
 
           {uploading && (
             <div className="mt-4">
-              <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400 mb-2">
+              <div className="mb-2 flex justify-between text-sm text-slate-400">
                 <span>上传中...</span>
                 <span>{progress}%</span>
               </div>
-              <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
                 <div
-                  className="h-full bg-primary-500 transition-all duration-300"
+                  className="h-full bg-emerald-300 transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -188,11 +202,11 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onClose, onUploadComple
           )}
         </div>
 
-        <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
-          <Button variant="ghost" onClick={handleClose} disabled={uploading}>
+        <div className="flex justify-end gap-3 border-t border-white/10 bg-white/[0.03] p-6">
+          <Button variant="ghost" className="text-slate-300 hover:bg-white/10 hover:text-white" onClick={handleClose} disabled={uploading}>
             取消
           </Button>
-          <Button onClick={handleUpload} disabled={!file || uploading}>
+          <Button className="bg-emerald-300 text-slate-950 hover:bg-emerald-200" onClick={handleUpload} disabled={!file || uploading}>
             {uploading ? '上传中...' : '上传'}
           </Button>
         </div>
@@ -259,13 +273,19 @@ const DocumentListPage: React.FC = () => {
       INDEXED: 'success',
       FAILED: 'error',
     }
+    const badgeClasses: Record<Document['status'], string> = {
+      UPLOADED: 'border border-sky-300/25 bg-sky-300/10 text-sky-200',
+      PROCESSING: 'border border-amber-300/25 bg-amber-300/10 text-amber-200',
+      INDEXED: 'border border-emerald-300/25 bg-emerald-300/10 text-emerald-200',
+      FAILED: 'border border-rose-300/25 bg-rose-300/10 text-rose-200',
+    }
     const labels: Record<Document['status'], string> = {
       UPLOADED: '已上传',
       PROCESSING: '处理中',
       INDEXED: '已索引',
       FAILED: '失败',
     }
-    return <Badge variant={variants[status]}>{labels[status]}</Badge>
+    return <Badge variant={variants[status]} className={badgeClasses[status]}>{labels[status]}</Badge>
   }
 
   const formatFileSize = (bytes: number) => {
@@ -288,48 +308,68 @@ const DocumentListPage: React.FC = () => {
       (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
+  const indexedCount = documents.filter((doc) => doc.status === 'INDEXED').length
+  const processingCount = documents.filter((doc) => doc.status === 'PROCESSING').length
+  const failedCount = documents.filter((doc) => doc.status === 'FAILED').length
+  const totalSize = documents.reduce((sum, doc) => sum + (doc.fileSize || 0), 0)
+
   return (
-    <div className="p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">文档管理</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">管理您的知识库文档</p>
-        </div>
-        <Button onClick={() => setUploadModalOpen(true)} className="gap-2">
+    <div className="mx-auto max-w-[1500px] p-4 text-slate-100 sm:p-6 lg:p-8">
+      <WorkbenchHero
+        kicker="knowledge ingestion"
+        title="知识库"
+        description="集中管理面试项目的参考资料、设计文档和技术说明。文档上传后会进入解析、切块、向量化和 Elasticsearch 索引流程，为搜索和问答提供同一份可信上下文。"
+        metrics={[
+          { icon: Archive, label: '文档总数', value: documents.length, tone: 'text-emerald-300' },
+          { icon: CheckCircle, label: '已索引', value: indexedCount, tone: 'text-sky-300' },
+          { icon: Clock3, label: '处理中', value: processingCount, tone: 'text-amber-300' },
+          { icon: Database, label: '存储体量', value: formatFileSize(totalSize), tone: 'text-violet-300' },
+          { icon: FileText, label: '异常文档', value: failedCount, tone: failedCount ? 'text-rose-300' : 'text-slate-400' },
+        ]}
+        action={
+        <Button onClick={() => setUploadModalOpen(true)} className="gap-2 bg-emerald-300 text-slate-950 hover:bg-emerald-200">
           <Upload className="h-4 w-4" />
           上传文档
         </Button>
-      </div>
+        }
+      />
 
       {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-          <Input
-            type="search"
-            placeholder="搜索文档..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.06] p-4 backdrop-blur">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+            <Input
+              type="search"
+              placeholder="按文件名或标题筛选知识库文档..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-11 border-white/10 bg-slate-950/45 pl-11 text-slate-100 placeholder:text-slate-600 focus-visible:border-emerald-300/60 focus-visible:ring-emerald-300/30"
+            />
+          </div>
+          <div className="flex items-center gap-3 text-sm text-slate-400">
+            <BookOpen className="h-4 w-4 text-emerald-300" />
+            <span>当前显示 {filteredDocuments.length} / {documents.length} 个文档</span>
+          </div>
         </div>
       </div>
 
       {/* Documents Table */}
-      <Card variant="bordered">
+      <Card variant="bordered" className="overflow-hidden border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-slate-500">加载文档中...</div>
+            <div className="p-10 text-center text-slate-400">加载文档中...</div>
           ) : filteredDocuments.length === 0 ? (
-            <div className="p-8 text-center">
-              <FileText className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-              <p className="text-slate-600 dark:text-slate-400 mb-2">未找到文档</p>
-              <p className="text-sm text-slate-500 mb-4">
+            <div className="p-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg border border-white/10 bg-slate-950/45 text-slate-500">
+                <FileText className="h-8 w-8" />
+              </div>
+              <p className="mb-2 font-semibold text-white">未找到文档</p>
+              <p className="mb-4 text-sm text-slate-500">
                 {searchTerm ? '尝试其他搜索词' : '上传您的第一个文档开始使用'}
               </p>
               {!searchTerm && (
-                <Button onClick={() => setUploadModalOpen(true)} className="gap-2">
+                <Button onClick={() => setUploadModalOpen(true)} className="gap-2 bg-emerald-300 text-slate-950 hover:bg-emerald-200">
                   <Upload className="h-4 w-4" />
                   上传文档
                 </Button>
@@ -338,54 +378,56 @@ const DocumentListPage: React.FC = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+                <thead className="border-b border-white/10 bg-slate-950/70">
                   <tr>
-                    <th className="text-left py-3 px-6 font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
                       名称
                     </th>
-                    <th className="text-left py-3 px-6 font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
                       大小
                     </th>
-                    <th className="text-left py-3 px-6 font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
                       上传日期
                     </th>
-                    <th className="text-left py-3 px-6 font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
                       状态
                     </th>
-                    <th className="text-left py-3 px-6 font-semibold text-sm text-slate-700 dark:text-slate-300">
-                      文档块
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
+                      索引时间
                     </th>
-                    <th className="text-right py-3 px-6 font-semibold text-sm text-slate-700 dark:text-slate-300">
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-slate-300">
                       操作
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                <tbody className="divide-y divide-white/10">
                   {filteredDocuments.map((doc) => (
                     <tr
                       key={doc.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                      className="cursor-pointer transition hover:bg-white/[0.06]"
                       onClick={() => navigate(`/knowledge/documents/${doc.id}`)}
                     >
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-slate-400 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-xs">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-emerald-300/10 text-emerald-300">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="max-w-xs truncate font-medium text-white" title={doc.title || doc.fileName}>
                               {doc.title || doc.fileName}
                             </p>
                             <p className="text-xs text-slate-500">{doc.fileType}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-sm text-slate-600 dark:text-slate-400">
+                      <td className="py-4 px-6 font-mono text-sm text-slate-400">
                         {formatFileSize(doc.fileSize)}
                       </td>
-                      <td className="py-4 px-6 text-sm text-slate-600 dark:text-slate-400">
+                      <td className="py-4 px-6 text-sm text-slate-400">
                         {formatDate(doc.createdAt)}
                       </td>
                       <td className="py-4 px-6">{getStatusBadge(doc.status)}</td>
-                      <td className="py-4 px-6 text-sm text-slate-600 dark:text-slate-400">
+                      <td className="py-4 px-6 text-sm text-slate-400">
                         {doc.indexedAt ? formatDate(doc.indexedAt) : '-'}
                       </td>
                       <td className="py-4 px-6">
@@ -396,7 +438,7 @@ const DocumentListPage: React.FC = () => {
                           {doc.status === 'INDEXED' && (
                             <button
                               onClick={() => handleReindex(doc.id)}
-                              className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-emerald-300/10 hover:text-emerald-300"
                               title="重新索引"
                             >
                               <RefreshCw className="h-4 w-4" />
@@ -404,7 +446,7 @@ const DocumentListPage: React.FC = () => {
                           )}
                           <button
                             onClick={() => handleDelete(doc.id)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-rose-300/10 hover:text-rose-300"
                             title="删除"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -425,6 +467,7 @@ const DocumentListPage: React.FC = () => {
         <div className="mt-6 flex justify-center gap-2">
           <Button
             variant="ghost"
+            className="text-slate-300 hover:bg-white/10 hover:text-white"
             onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
             disabled={currentPage === 0}
           >
@@ -449,8 +492,8 @@ const DocumentListPage: React.FC = () => {
                   onClick={() => setCurrentPage(pageNum)}
                   className={`w-10 h-10 rounded-lg transition-colors ${
                     currentPage === pageNum
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      ? 'bg-emerald-300 text-slate-950'
+                      : 'border border-white/10 bg-white/[0.05] text-slate-400 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {pageNum + 1}
@@ -460,6 +503,7 @@ const DocumentListPage: React.FC = () => {
           </div>
           <Button
             variant="ghost"
+            className="text-slate-300 hover:bg-white/10 hover:text-white"
             onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={currentPage >= totalPages - 1}
           >

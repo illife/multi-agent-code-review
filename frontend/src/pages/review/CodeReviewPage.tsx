@@ -431,7 +431,7 @@ const CodeReviewPage: React.FC = () => {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] p-4 text-slate-100 sm:p-6 lg:p-8">
+    <div className="mx-auto w-full max-w-[1840px] p-4 text-slate-100 sm:p-6 lg:p-8">
       <section className="relative mb-6 overflow-hidden rounded-lg border border-white/10 bg-white/[0.06] p-6 shadow-[0_30px_100px_rgba(2,6,23,0.3)] backdrop-blur-xl lg:p-8">
         <div className="absolute inset-0 cv-grid opacity-30" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -446,14 +446,14 @@ const CodeReviewPage: React.FC = () => {
             </p>
           </div>
           <Link to="/projects">
-            <Button variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10">
+            <Button variant="outline" className="whitespace-nowrap border-white/15 text-slate-100 hover:bg-white/10">
               <FolderKanban className="h-4 w-4" />
               项目管理
             </Button>
           </Link>
         </div>
 
-        <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="relative mt-6 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
           {[
             { icon: BrainCircuit, label: '审查智能体', value: '4 + 1' },
             { icon: FolderKanban, label: '可访问项目', value: projects.length },
@@ -475,8 +475,8 @@ const CodeReviewPage: React.FC = () => {
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-        <div className="space-y-6">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)] 2xl:grid-cols-[minmax(0,1.18fr)_minmax(430px,0.82fr)]">
+        <div className="min-w-0 space-y-6">
           <Card variant="bordered" className="border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
@@ -493,7 +493,7 @@ const CodeReviewPage: React.FC = () => {
                   <FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-500" />
                   <p className="text-sm text-slate-400">还没有可审查的项目</p>
                   <Link to="/projects" className="mt-4 inline-flex">
-                    <Button size="sm" className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
+                    <Button size="sm" className="whitespace-nowrap bg-emerald-300 text-slate-950 hover:bg-emerald-200">
                       <Upload className="h-4 w-4" />
                       上传项目
                     </Button>
@@ -501,11 +501,11 @@ const CodeReviewPage: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                  <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_max-content] md:items-center">
                     <select
                       value={selectedProjectId}
                       onChange={(event) => handleProjectChange(Number(event.target.value))}
-                      className="w-full rounded-lg border border-white/10 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/30"
+                      className="min-w-0 w-full rounded-lg border border-white/10 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/30"
                     >
                       {projects.map((project) => (
                         <option key={project.id} value={project.id}>
@@ -517,6 +517,7 @@ const CodeReviewPage: React.FC = () => {
                       <Badge
                         size="md"
                         variant={selectedProject.status === 'COMPLETED' ? 'success' : selectedProject.status === 'FAILED' ? 'error' : 'info'}
+                        className="justify-self-start whitespace-nowrap md:justify-self-end"
                       >
                         {selectedProject.totalIssues || 0} 个问题
                       </Badge>
@@ -530,8 +531,14 @@ const CodeReviewPage: React.FC = () => {
                       项目文件正在扫描或尚未生成
                     </div>
                   ) : (
-                    <div className="max-h-[360px] overflow-y-auto rounded-lg border border-white/10 bg-slate-950/35">
-                      <table className="w-full text-sm">
+                    <div className="max-h-[360px] overflow-auto rounded-lg border border-white/10 bg-slate-950/35">
+                      <table className="min-w-[720px] w-full table-fixed text-sm">
+                        <colgroup>
+                          <col className="w-[54%]" />
+                          <col className="w-[14%]" />
+                          <col className="w-[16%]" />
+                          <col className="w-[16%]" />
+                        </colgroup>
                         <thead className="sticky top-0 bg-slate-950">
                           <tr>
                             <th className="px-4 py-2 text-left font-medium text-slate-300">文件</th>
@@ -544,7 +551,7 @@ const CodeReviewPage: React.FC = () => {
                           {projectFiles.map((file) => (
                             <tr key={file.fileId} className="hover:bg-white/[0.06]">
                               <td className="px-4 py-3">
-                                <div className="max-w-[360px]">
+                                <div className="min-w-0">
                                   <p className="truncate font-medium text-white" title={file.fileName}>
                                     {file.fileName}
                                   </p>
@@ -553,15 +560,15 @@ const CodeReviewPage: React.FC = () => {
                                   </p>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-slate-400">{file.language || '-'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-slate-400">{file.language || '-'}</td>
                               <td className="px-4 py-3">
-                                <Badge size="sm" variant={file.isAnalyzed ? 'success' : 'default'}>
+                                <Badge size="sm" variant={file.isAnalyzed ? 'success' : 'default'} className="whitespace-nowrap">
                                   {file.isAnalyzed ? '已分析' : '待分析'}
                                 </Badge>
                               </td>
-                              <td className="px-4 py-3 text-right">
+                              <td className="px-4 py-3 text-right whitespace-nowrap">
                                 {file.reviewId ? (
-                                  <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={() => openReview(file.reviewId!)}>
+                                  <Button size="sm" variant="outline" className="whitespace-nowrap border-white/15 text-slate-100 hover:bg-white/10" onClick={() => openReview(file.reviewId!)}>
                                     <FileSearch className="h-4 w-4" />
                                     查看
                                   </Button>
@@ -619,7 +626,7 @@ const CodeReviewPage: React.FC = () => {
                 />
               </div>
 
-              <Button onClick={handleSubmit} loading={loading} disabled={!code.trim()} className="w-full bg-emerald-300 text-slate-950 hover:bg-emerald-200">
+              <Button onClick={handleSubmit} loading={loading} disabled={!code.trim()} className="w-full whitespace-nowrap bg-emerald-300 text-slate-950 hover:bg-emerald-200">
                 <Play className="h-4 w-4" />
                 开始审查
               </Button>
@@ -627,18 +634,18 @@ const CodeReviewPage: React.FC = () => {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card variant="bordered" className="border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
             <CardHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
                   <CardTitle className="text-white">审查结果</CardTitle>
-                  <CardDescription className="text-slate-400">
+                  <CardDescription className="truncate text-slate-400">
                     {reviewId ? `${reviewFileName || `审查 #${reviewId}`}` : '等待选择项目文件或提交代码'}
                   </CardDescription>
                 </div>
                 {reviewId && (
-                  <Badge variant={reviewStatus === 'COMPLETED' ? 'success' : reviewStatus === 'FAILED' ? 'error' : 'info'}>
+                  <Badge className="w-fit shrink-0 whitespace-nowrap" variant={reviewStatus === 'COMPLETED' ? 'success' : reviewStatus === 'FAILED' ? 'error' : 'info'}>
                     {reviewStatus || '加载中'}
                   </Badge>
                 )}
@@ -657,7 +664,7 @@ const CodeReviewPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                     <div className="rounded-lg border border-white/10 bg-slate-950/35 p-3">
                       <p className="text-xs text-slate-500">总问题</p>
                       <p className="mt-1 text-xl font-bold text-white">{issues.length}</p>
@@ -680,24 +687,24 @@ const CodeReviewPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-2 sm:grid-cols-2 2xl:flex 2xl:flex-wrap">
                     {teachingReport ? (
-                      <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={handleDownloadTeachingReport} disabled={downloading}>
+                      <Button size="sm" variant="outline" className="w-full whitespace-nowrap border-white/15 text-slate-100 hover:bg-white/10 2xl:w-auto" onClick={handleDownloadTeachingReport} disabled={downloading}>
                         <Download className="h-4 w-4" />
                         教学报告
                       </Button>
                     ) : teachingReportLoading ? (
-                      <Button size="sm" variant="outline" className="border-white/15 text-slate-100" disabled>
+                      <Button size="sm" variant="outline" className="w-full whitespace-nowrap border-white/15 text-slate-100 2xl:w-auto" disabled>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         报告生成中
                       </Button>
                     ) : (
-                      <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={() => reviewId && pollTeachingReport(reviewId)}>
+                      <Button size="sm" variant="outline" className="w-full whitespace-nowrap border-white/15 text-slate-100 hover:bg-white/10 2xl:w-auto" onClick={() => reviewId && pollTeachingReport(reviewId)}>
                         <RefreshCw className="h-4 w-4" />
                         刷新报告
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={handleDownloadFullReport} disabled={downloading}>
+                    <Button size="sm" variant="outline" className="w-full whitespace-nowrap border-white/15 text-slate-100 hover:bg-white/10 2xl:w-auto" onClick={handleDownloadFullReport} disabled={downloading}>
                       <Download className="h-4 w-4" />
                       完整报告
                     </Button>
@@ -705,7 +712,7 @@ const CodeReviewPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-slate-300 hover:bg-white/10"
+                        className="w-full whitespace-nowrap text-slate-300 hover:bg-white/10 2xl:w-auto"
                         onClick={() => navigator.clipboard.writeText(`${window.location.origin}/review?reviewId=${reviewId}`)}
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -725,7 +732,7 @@ const CodeReviewPage: React.FC = () => {
                 <CardDescription className="text-slate-400">{agents.length} 个审查 Agent + 1 个教学报告 Agent</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 2xl:grid-cols-2">
                   {agents.map((agent) => (
                     <div
                       key={agent.agentType}
@@ -742,7 +749,7 @@ const CodeReviewPage: React.FC = () => {
                           {agent.status === 'COMPLETED' ? '已完成' : agent.status === 'RUNNING' ? '分析中' : agent.status}
                         </p>
                       </div>
-                      <Badge size="sm" variant={agent.issuesFound > 0 ? 'warning' : 'success'}>
+                      <Badge size="sm" variant={agent.issuesFound > 0 ? 'warning' : 'success'} className="shrink-0 whitespace-nowrap">
                         {agent.issuesFound || 0}
                       </Badge>
                     </div>
@@ -759,7 +766,7 @@ const CodeReviewPage: React.FC = () => {
                         {getAgentStatusText(teachingAgentStatus)}
                       </p>
                     </div>
-                    <Badge size="sm" variant={teachingReport ? 'success' : teachingReportLoading ? 'info' : 'default'}>
+                    <Badge size="sm" variant={teachingReport ? 'success' : teachingReportLoading ? 'info' : 'default'} className="shrink-0 whitespace-nowrap">
                       报告
                     </Badge>
                   </div>
