@@ -4,7 +4,7 @@ import { useDispatch } from 'react-redux'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { ArrowRight, LockKeyhole, UserRound } from 'lucide-react'
+import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react'
 import Input from '../../components/ui/Input'
 import Button from '../../components/ui/Button'
 import AuthShowcase from '../../components/auth/AuthShowcase'
@@ -74,23 +74,26 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <main className="grid min-h-screen bg-[#f6f3ec] text-slate-950 lg:grid-cols-[1.08fr_0.92fr]">
+    <main className="grid min-h-screen overflow-hidden bg-slate-950 text-slate-950 lg:grid-cols-[1.08fr_0.92fr]">
       <AuthShowcase />
 
-      <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
-        <div className="w-full max-w-[460px]">
-          <div className="mb-8">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white/70 px-3 py-1 text-sm text-slate-600 shadow-sm">
-              <LockKeyhole className="h-4 w-4 text-teal-700" />
+      <section className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <div className="absolute inset-0 cv-grid opacity-35 lg:hidden" />
+        <div className="absolute inset-x-0 top-0 h-72 cv-scanline opacity-50 lg:hidden" />
+
+        <div className="relative z-10 w-full max-w-[470px]">
+          <div className="mb-8 text-white">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-sm text-emerald-100 shadow-sm">
+              <LockKeyhole className="h-4 w-4 text-emerald-300" />
               安全访问工作台
             </div>
-            <h1 className="text-4xl font-black tracking-normal text-slate-950">欢迎回来</h1>
-            <p className="mt-3 text-base leading-7 text-slate-600">
-              登录后继续查看代码审查、知识库索引、学习进度和项目分析结果。
+            <h1 className="text-4xl font-black tracking-normal text-white">欢迎回来</h1>
+            <p className="mt-3 text-base leading-7 text-slate-300">
+              继续查看项目级审查、知识库问答、教学报告和部署状态。面试演示时可以直接进入已准备好的公开项目。
             </p>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,32,0.12)] sm:p-8">
+          <div className="rounded-lg border border-white/10 bg-white p-6 shadow-[0_30px_100px_rgba(2,6,23,0.34)] sm:p-8">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -117,44 +120,45 @@ const LoginPage: React.FC = () => {
 
               <div className="flex items-center justify-between gap-3 text-sm">
                 <label className="flex items-center gap-2 text-slate-600">
-                  <input type="checkbox" className="rounded border-slate-300 text-teal-700 focus:ring-teal-600" />
+                  <input type="checkbox" className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
                   记住这台设备
                 </label>
-                <Link to="/forgot-password" className="font-semibold text-teal-700 hover:text-teal-800">
+                <Link to="/forgot-password" className="font-semibold text-emerald-700 hover:text-emerald-800">
                   忘记密码？
                 </Link>
               </div>
 
               <Button type="submit" className="h-12 w-full bg-slate-950 text-white hover:bg-slate-800" loading={loading}>
-                进入工作台
+                进入 CodeView 工作台
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </form>
 
-            <div className="mt-6 rounded-lg bg-[#f6f3ec] p-4">
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-700 text-white">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
                   <UserRound className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">没有账号也可以直接开始</p>
+                  <p className="text-sm font-semibold text-slate-900">演示账号与新账号都可进入</p>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    创建账号后即可上传文档、提交代码审查，并在独立工作区中管理分析结果。
+                    公开项目可以被所有用户查看和审查，删除权限只保留给项目创建者。
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 text-center text-sm text-slate-600">
-              还没有账号？{' '}
-              <Link to="/register" className="font-semibold text-teal-700 hover:text-teal-800">
+            <div className="mt-6 flex items-center justify-center gap-2 text-center text-sm text-slate-600">
+              <span>还没有账号？</span>
+              <Link to="/register" className="font-semibold text-emerald-700 hover:text-emerald-800">
                 创建新账号
               </Link>
             </div>
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-500">
-            CodeView AI Review Lab · HTTPS 部署在 codeview.top
+          <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+            HTTPS 部署在 codeview.top，AI Token 访问已加限流保护
           </p>
         </div>
       </section>

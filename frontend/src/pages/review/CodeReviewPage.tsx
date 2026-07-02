@@ -4,6 +4,8 @@ import { useDispatch } from 'react-redux'
 import {
   AlertCircle,
   AlertTriangle,
+  Activity,
+  BrainCircuit,
   Bug,
   CheckCircle,
   Clock,
@@ -17,6 +19,8 @@ import {
   Loader2,
   Play,
   RefreshCw,
+  ShieldCheck,
+  Sparkles,
   Upload,
   Zap,
 } from 'lucide-react'
@@ -90,6 +94,10 @@ const CodeReviewPage: React.FC = () => {
   }, [issues])
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
+  const reviewableFileCount = useMemo(
+    () => projectFiles.filter((file) => Boolean(file.reviewId)).length,
+    [projectFiles]
+  )
 
   const loadProjects = async () => {
     setProjectLoading(true)
@@ -423,43 +431,69 @@ const CodeReviewPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            代码审查
-          </h1>
-          <p className="mt-1 text-slate-600 dark:text-slate-400">
-            从已上传项目查看文件级审查，也可临时提交代码片段。
-          </p>
+    <div className="mx-auto max-w-[1500px] p-4 text-slate-100 sm:p-6 lg:p-8">
+      <section className="relative mb-6 overflow-hidden rounded-lg border border-white/10 bg-white/[0.06] p-6 shadow-[0_30px_100px_rgba(2,6,23,0.3)] backdrop-blur-xl lg:p-8">
+        <div className="absolute inset-0 cv-grid opacity-30" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="cv-kicker">
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              5-agent review console
+            </div>
+            <h1 className="mt-5 text-4xl font-black tracking-normal text-white">代码审查</h1>
+            <p className="mt-3 text-base leading-7 text-slate-300">
+              从项目管理里的公开项目直接打开文件级审查，也可以临时提交代码片段。审查结果由 4 个审查 Agent 汇总，第 5 个教学 Agent 生成可讲解报告。
+            </p>
+          </div>
+          <Link to="/projects">
+            <Button variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10">
+              <FolderKanban className="h-4 w-4" />
+              项目管理
+            </Button>
+          </Link>
         </div>
-        <Link to="/projects">
-          <Button variant="outline">
-            <FolderKanban className="h-4 w-4" />
-            项目管理
-          </Button>
-        </Link>
-      </div>
+
+        <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            { icon: BrainCircuit, label: '审查智能体', value: '4 + 1' },
+            { icon: FolderKanban, label: '可访问项目', value: projects.length },
+            { icon: FileSearch, label: '可审查文件', value: reviewableFileCount },
+            { icon: Activity, label: '当前问题', value: issues.length },
+            { icon: ShieldCheck, label: 'Token 保护', value: '已启用' },
+          ].map((item) => {
+            const Icon = item.icon
+            return (
+              <div key={item.label} className="rounded-lg border border-white/10 bg-slate-950/35 p-4">
+                <div className="flex items-center gap-3">
+                  <Icon className="h-5 w-5 text-emerald-300" />
+                  <span className="text-sm text-slate-400">{item.label}</span>
+                </div>
+                <p className="mt-2 font-mono text-lg font-bold text-white">{item.value}</p>
+              </div>
+            )
+          })}
+        </div>
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
         <div className="space-y-6">
-          <Card variant="bordered">
+          <Card variant="bordered" className="border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FolderKanban className="h-5 w-5 text-primary-600" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <FolderKanban className="h-5 w-5 text-emerald-300" />
                 项目文件审查
               </CardTitle>
-              <CardDescription>选择已上传项目中的文件，查看项目分析生成的审查结果</CardDescription>
+              <CardDescription className="text-slate-400">选择已上传项目中的文件，查看项目分析生成的审查结果</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {projectLoading ? (
-                <div className="py-10 text-center text-sm text-slate-500">项目加载中...</div>
+                <div className="py-10 text-center text-sm text-slate-400">项目加载中...</div>
               ) : projects.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
-                  <FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-400" />
-                  <p className="text-sm text-slate-600 dark:text-slate-400">还没有可审查的项目</p>
+                <div className="rounded-lg border border-dashed border-white/20 bg-slate-950/30 p-6 text-center">
+                  <FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-500" />
+                  <p className="text-sm text-slate-400">还没有可审查的项目</p>
                   <Link to="/projects" className="mt-4 inline-flex">
-                    <Button size="sm">
+                    <Button size="sm" className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
                       <Upload className="h-4 w-4" />
                       上传项目
                     </Button>
@@ -471,7 +505,7 @@ const CodeReviewPage: React.FC = () => {
                     <select
                       value={selectedProjectId}
                       onChange={(event) => handleProjectChange(Number(event.target.value))}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800"
+                      className="w-full rounded-lg border border-white/10 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/30"
                     >
                       {projects.map((project) => (
                         <option key={project.id} value={project.id}>
@@ -492,26 +526,26 @@ const CodeReviewPage: React.FC = () => {
                   {projectFilesLoading ? (
                     <div className="py-8 text-center text-sm text-slate-500">文件加载中...</div>
                   ) : projectFiles.length === 0 ? (
-                    <div className="rounded-lg bg-slate-50 p-6 text-center text-sm text-slate-500 dark:bg-slate-800">
+                    <div className="rounded-lg border border-white/10 bg-slate-950/35 p-6 text-center text-sm text-slate-400">
                       项目文件正在扫描或尚未生成
                     </div>
                   ) : (
-                    <div className="max-h-[360px] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                    <div className="max-h-[360px] overflow-y-auto rounded-lg border border-white/10 bg-slate-950/35">
                       <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800">
+                        <thead className="sticky top-0 bg-slate-950">
                           <tr>
-                            <th className="px-4 py-2 text-left font-medium text-slate-700 dark:text-slate-300">文件</th>
-                            <th className="px-4 py-2 text-left font-medium text-slate-700 dark:text-slate-300">语言</th>
-                            <th className="px-4 py-2 text-left font-medium text-slate-700 dark:text-slate-300">状态</th>
-                            <th className="px-4 py-2 text-right font-medium text-slate-700 dark:text-slate-300">审查</th>
+                            <th className="px-4 py-2 text-left font-medium text-slate-300">文件</th>
+                            <th className="px-4 py-2 text-left font-medium text-slate-300">语言</th>
+                            <th className="px-4 py-2 text-left font-medium text-slate-300">状态</th>
+                            <th className="px-4 py-2 text-right font-medium text-slate-300">审查</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        <tbody className="divide-y divide-white/10">
                           {projectFiles.map((file) => (
-                            <tr key={file.fileId} className="hover:bg-slate-50 dark:hover:bg-slate-800/70">
+                            <tr key={file.fileId} className="hover:bg-white/[0.06]">
                               <td className="px-4 py-3">
                                 <div className="max-w-[360px]">
-                                  <p className="truncate font-medium text-slate-900 dark:text-slate-100" title={file.fileName}>
+                                  <p className="truncate font-medium text-white" title={file.fileName}>
                                     {file.fileName}
                                   </p>
                                   <p className="truncate text-xs text-slate-500" title={file.filePath}>
@@ -519,7 +553,7 @@ const CodeReviewPage: React.FC = () => {
                                   </p>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{file.language || '-'}</td>
+                              <td className="px-4 py-3 text-slate-400">{file.language || '-'}</td>
                               <td className="px-4 py-3">
                                 <Badge size="sm" variant={file.isAnalyzed ? 'success' : 'default'}>
                                   {file.isAnalyzed ? '已分析' : '待分析'}
@@ -527,7 +561,7 @@ const CodeReviewPage: React.FC = () => {
                               </td>
                               <td className="px-4 py-3 text-right">
                                 {file.reviewId ? (
-                                  <Button size="sm" variant="outline" onClick={() => openReview(file.reviewId!)}>
+                                  <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={() => openReview(file.reviewId!)}>
                                     <FileSearch className="h-4 w-4" />
                                     查看
                                   </Button>
@@ -548,20 +582,20 @@ const CodeReviewPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card variant="bordered">
+          <Card variant="bordered" className="border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
             <CardHeader>
-              <CardTitle>临时代码片段</CardTitle>
-              <CardDescription>用于快速验证单个函数或文件片段</CardDescription>
+              <CardTitle className="text-white">临时代码片段</CardTitle>
+              <CardDescription className="text-slate-400">用于快速验证单个函数或文件片段</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-slate-300">
                   编程语言
                 </label>
                 <select
                   value={language}
                   onChange={(event) => setLanguage(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800"
+                  className="w-full rounded-lg border border-white/10 bg-slate-950/45 px-3 py-2 text-slate-100 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/30"
                 >
                   <option value="javascript">JavaScript</option>
                   <option value="typescript">TypeScript</option>
@@ -574,18 +608,18 @@ const CodeReviewPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-slate-300">
                   代码
                 </label>
                 <textarea
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
                   placeholder="// 粘贴你的代码到这里..."
-                  className="h-56 w-full resize-none rounded-lg border border-slate-300 px-4 py-3 font-mono text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:border-slate-700 dark:bg-slate-800"
+                  className="h-56 w-full resize-none rounded-lg border border-white/10 bg-slate-950/45 px-4 py-3 font-mono text-sm text-slate-100 placeholder:text-slate-600 focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/30"
                 />
               </div>
 
-              <Button onClick={handleSubmit} loading={loading} disabled={!code.trim()} className="w-full">
+              <Button onClick={handleSubmit} loading={loading} disabled={!code.trim()} className="w-full bg-emerald-300 text-slate-950 hover:bg-emerald-200">
                 <Play className="h-4 w-4" />
                 开始审查
               </Button>
@@ -594,12 +628,12 @@ const CodeReviewPage: React.FC = () => {
         </div>
 
         <div className="space-y-6">
-          <Card variant="bordered">
+          <Card variant="bordered" className="border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <CardTitle>审查结果</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-white">审查结果</CardTitle>
+                  <CardDescription className="text-slate-400">
                     {reviewId ? `${reviewFileName || `审查 #${reviewId}`}` : '等待选择项目文件或提交代码'}
                   </CardDescription>
                 </div>
@@ -612,35 +646,35 @@ const CodeReviewPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               {reviewLoading ? (
-                <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
+                <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   正在加载审查结果
                 </div>
               ) : !reviewId ? (
                 <div className="py-16 text-center">
-                  <FileSearch className="mx-auto mb-4 h-14 w-14 text-slate-300" />
-                  <p className="text-sm text-slate-500">选择一个已分析文件，或提交临时代码片段</p>
+                  <FileSearch className="mx-auto mb-4 h-14 w-14 text-slate-600" />
+                  <p className="text-sm text-slate-400">选择一个已分析文件，或提交临时代码片段</p>
                 </div>
               ) : (
                 <div className="space-y-5">
                   <div className="grid grid-cols-4 gap-3">
-                    <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
+                    <div className="rounded-lg border border-white/10 bg-slate-950/35 p-3">
                       <p className="text-xs text-slate-500">总问题</p>
-                      <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">{issues.length}</p>
+                      <p className="mt-1 text-xl font-bold text-white">{issues.length}</p>
                     </div>
-                    <div className="rounded-lg bg-error-50 p-3 dark:bg-error-900/20">
+                    <div className="rounded-lg border border-rose-300/20 bg-rose-300/10 p-3">
                       <p className="text-xs text-slate-500">高危</p>
-                      <p className="mt-1 text-xl font-bold text-error-600">
+                      <p className="mt-1 text-xl font-bold text-rose-300">
                         {(statistics.bySeverity.CRITICAL || 0) + (statistics.bySeverity.HIGH || 0)}
                       </p>
                     </div>
-                    <div className="rounded-lg bg-warning-50 p-3 dark:bg-warning-900/20">
+                    <div className="rounded-lg border border-amber-300/20 bg-amber-300/10 p-3">
                       <p className="text-xs text-slate-500">中等</p>
-                      <p className="mt-1 text-xl font-bold text-warning-600">{statistics.bySeverity.MEDIUM || 0}</p>
+                      <p className="mt-1 text-xl font-bold text-amber-300">{statistics.bySeverity.MEDIUM || 0}</p>
                     </div>
-                    <div className="rounded-lg bg-primary-50 p-3 dark:bg-primary-900/20">
+                    <div className="rounded-lg border border-sky-300/20 bg-sky-300/10 p-3">
                       <p className="text-xs text-slate-500">低危</p>
-                      <p className="mt-1 text-xl font-bold text-primary-600">
+                      <p className="mt-1 text-xl font-bold text-sky-300">
                         {(statistics.bySeverity.LOW || 0) + (statistics.bySeverity.INFO || 0)}
                       </p>
                     </div>
@@ -648,22 +682,22 @@ const CodeReviewPage: React.FC = () => {
 
                   <div className="flex flex-wrap gap-2">
                     {teachingReport ? (
-                      <Button size="sm" variant="outline" onClick={handleDownloadTeachingReport} disabled={downloading}>
+                      <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={handleDownloadTeachingReport} disabled={downloading}>
                         <Download className="h-4 w-4" />
                         教学报告
                       </Button>
                     ) : teachingReportLoading ? (
-                      <Button size="sm" variant="outline" disabled>
+                      <Button size="sm" variant="outline" className="border-white/15 text-slate-100" disabled>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         报告生成中
                       </Button>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => reviewId && pollTeachingReport(reviewId)}>
+                      <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={() => reviewId && pollTeachingReport(reviewId)}>
                         <RefreshCw className="h-4 w-4" />
                         刷新报告
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" onClick={handleDownloadFullReport} disabled={downloading}>
+                    <Button size="sm" variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10" onClick={handleDownloadFullReport} disabled={downloading}>
                       <Download className="h-4 w-4" />
                       完整报告
                     </Button>
@@ -671,6 +705,7 @@ const CodeReviewPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="text-slate-300 hover:bg-white/10"
                         onClick={() => navigator.clipboard.writeText(`${window.location.origin}/review?reviewId=${reviewId}`)}
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -684,23 +719,23 @@ const CodeReviewPage: React.FC = () => {
           </Card>
 
           {agents.length > 0 && (
-            <Card variant="bordered">
+            <Card variant="bordered" className="border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
               <CardHeader>
-                <CardTitle>AI 协作状态</CardTitle>
-                <CardDescription>{agents.length} 个审查 Agent + 1 个教学报告 Agent</CardDescription>
+                <CardTitle className="text-white">AI 协作状态</CardTitle>
+                <CardDescription className="text-slate-400">{agents.length} 个审查 Agent + 1 个教学报告 Agent</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {agents.map((agent) => (
                     <div
                       key={agent.agentType}
-                      className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+                      className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-950/35 p-3"
                     >
-                      <div className="rounded-full bg-slate-100 p-2 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <div className="rounded-lg bg-emerald-300/10 p-2 text-emerald-300">
                         {getAgentIcon(agent.agentType)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        <p className="truncate text-sm font-medium text-white">
                           {agent.agentName}
                         </p>
                         <p className="text-xs text-slate-500">
@@ -712,12 +747,12 @@ const CodeReviewPage: React.FC = () => {
                       </Badge>
                     </div>
                   ))}
-                  <div className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
-                    <div className="rounded-full bg-slate-100 p-2 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-slate-950/35 p-3">
+                    <div className="rounded-lg bg-violet-300/10 p-2 text-violet-300">
                       {getAgentIcon('TEACHING_MENTOR')}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                      <p className="truncate text-sm font-medium text-white">
                         教学导师
                       </p>
                       <p className="text-xs text-slate-500">
@@ -736,10 +771,10 @@ const CodeReviewPage: React.FC = () => {
       </div>
 
       {issues.length > 0 && (
-        <Card variant="bordered" className="mt-6">
+        <Card variant="bordered" className="mt-6 border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
           <CardHeader>
-            <CardTitle>问题列表</CardTitle>
-            <CardDescription>发现 {issues.length} 个问题</CardDescription>
+            <CardTitle className="text-white">问题列表</CardTitle>
+            <CardDescription className="text-slate-400">发现 {issues.length} 个问题</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

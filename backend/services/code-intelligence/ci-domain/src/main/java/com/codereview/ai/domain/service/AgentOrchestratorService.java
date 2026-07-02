@@ -5,6 +5,7 @@ import com.codereview.ai.domain.agent.shared.AgentExecutionResult;
 import com.codereview.ai.domain.agent.shared.AgentOrchestrationService;
 import com.codereview.ai.domain.model.*;
 import com.codereview.ai.domain.repository.*;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -61,7 +62,7 @@ public class AgentOrchestratorService {
      * @param taskId Task ID to execute
      * @return Updated AgentTask with results
      */
-    @Transactional
+    @Transactional(noRollbackFor = AiUsageLimitExceededException.class)
     public AgentTask executeTask(Long taskId) {
         log.info("Executing agent task: taskId={}", taskId);
 
@@ -96,6 +97,13 @@ public class AgentOrchestratorService {
 
             return taskRepository.save(task);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Agent task blocked by AI usage limiter: taskId={}, message={}", taskId, e.getMessage());
+            task.setStatus(AgentTask.Status.FAILED);
+            task.setErrorMessage(e.getMessage());
+            task.setCompletedAt(LocalDateTime.now());
+            taskRepository.save(task);
+            throw e;
         } catch (Exception e) {
             log.error("Error executing task: {}", taskId, e);
             task.setStatus(AgentTask.Status.FAILED);
@@ -122,6 +130,10 @@ public class AgentOrchestratorService {
                 );
                 executions.add(execution);
             } catch (Exception e) {
+                AiUsageLimitExceededException quotaException = AiUsageLimitExceededException.find(e);
+                if (quotaException != null) {
+                    throw quotaException;
+                }
                 log.error("Failed to execute agent: {} for task: {}", agentType, task.getId(), e);
                 // Create a failed execution record
                 AgentExecution failedExecution = AgentExecution.builder()

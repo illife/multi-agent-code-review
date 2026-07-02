@@ -4,6 +4,7 @@ import com.think.platform.shared.common.exception.AccountLockedException;
 import com.think.platform.shared.common.exception.BusinessException;
 import com.think.platform.shared.common.result.Result;
 import com.think.platform.shared.common.result.ResultCode;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -92,6 +93,13 @@ public class GlobalExceptionHandler {
     public Result<?> handleAccessDeniedException(AccessDeniedException e) {
         log.error("授权异常: {}", e.getMessage());
         return Result.failed(ResultCode.FORBIDDEN, "无权访问");
+    }
+
+    @ExceptionHandler(AiUsageLimitExceededException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public Result<?> handleAiUsageLimitExceededException(AiUsageLimitExceededException e) {
+        log.warn("AI 使用限制: {}", e.getMessage());
+        return Result.failed(429, e.getMessage());
     }
 
     /**

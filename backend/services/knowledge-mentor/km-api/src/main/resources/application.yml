@@ -120,6 +120,14 @@ ai:
   provider:
     embedding: ${AI_PROVIDER_EMBEDDING:qwen}  # qwen, glm
     chat: ${AI_PROVIDER_CHAT:qwen}              # qwen, glm
+  usage-limit:
+    enabled: ${AI_USAGE_LIMIT_ENABLED:true}
+    daily-token-budget: ${AI_DAILY_TOKEN_BUDGET:120000}
+    site-daily-token-budget: ${AI_SITE_DAILY_TOKEN_BUDGET:800000}
+    minute-call-limit: ${AI_MINUTE_CALL_LIMIT:8}
+    agent-output-token-reserve: ${AI_AGENT_OUTPUT_TOKEN_RESERVE:3000}
+    chat-output-token-reserve: ${AI_CHAT_OUTPUT_TOKEN_RESERVE:2000}
+    fail-open: ${AI_USAGE_LIMIT_FAIL_OPEN:false}
 
 # Qwen API Configuration (阿里云通义千问)
 qwen:

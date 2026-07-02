@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.think.platform.shared.ai.llm.ChatRequest;
 import com.think.platform.shared.ai.llm.ChatResponse;
 import com.think.platform.shared.ai.llm.LlmProvider;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -211,9 +212,17 @@ public class AgentAutoConfiguration {
                     "PERFORMANCE_OPTIMIZER"
             );
 
-            return inspectors.parallelStream()
-                    .map(agentType -> executeAgent(agentType, context))
-                    .toList();
+            try {
+                return inspectors.parallelStream()
+                        .map(agentType -> executeAgent(agentType, context))
+                        .toList();
+            } catch (Exception e) {
+                AiUsageLimitExceededException quotaException = AiUsageLimitExceededException.find(e);
+                if (quotaException != null) {
+                    throw quotaException;
+                }
+                throw e;
+            }
         }
 
         @Override

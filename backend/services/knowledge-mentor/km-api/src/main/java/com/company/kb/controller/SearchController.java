@@ -4,6 +4,7 @@ import com.think.platform.shared.common.result.Result;
 import com.company.kb.core.service.RankFusionService;
 import com.company.kb.core.service.VectorEmbeddingService;
 import com.company.kb.infra.elasticsearch.service.ElasticsearchService;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -88,6 +89,9 @@ public class SearchController {
 
             return Result.success(results);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("KNN search blocked by AI usage limiter: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("KNN搜索失败", e);
             return Result.failed(500, "搜索失败: " + e.getMessage());
@@ -260,6 +264,9 @@ public class SearchController {
 
             return Result.success(response);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Hybrid search blocked by AI usage limiter: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("混合搜索失败", e);
             return Result.failed(500, "搜索失败: " + e.getMessage());

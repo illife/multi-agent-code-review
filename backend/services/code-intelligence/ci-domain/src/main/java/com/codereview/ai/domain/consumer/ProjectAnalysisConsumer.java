@@ -18,6 +18,7 @@ import com.codereview.ai.domain.service.ProjectFileScanner;
 import com.codereview.ai.domain.service.ProjectReportGenerator;
 import com.codereview.ai.domain.infrastructure.kafka.KafkaProducerService;
 import com.codereview.ai.domain.infrastructure.minio.MinioService;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -160,6 +161,9 @@ public class ProjectAnalysisConsumer {
                             projectId, file.getId(), file.getFileName(), processedFiles, projectFiles.size(), fileIssues);
 
                 } catch (Exception e) {
+                    if (AiUsageLimitExceededException.causedBy(e)) {
+                        throw e;
+                    }
                     log.error("File analysis failed: projectId={}, fileId={}", projectId, file.getId(), e);
                     // Mark as analyzed even if failed, so we don't retry indefinitely
                     file.setIsAnalyzed(true);
@@ -173,7 +177,7 @@ public class ProjectAnalysisConsumer {
 
             // Perform architecture analysis
             log.info("Starting architecture analysis: projectId={}", projectId);
-            ProjectArchitectureInfo architectureInfo = analyzeProjectArchitecture(tempDir, projectFiles, projectId);
+            ProjectArchitectureInfo architectureInfo = analyzeProjectArchitecture(tempDir, projectFiles, project);
             log.info("Architecture analysis complete: projectId={}, layers={}, hasIssues={}",
                     projectId, architectureInfo.getLayers().size(), architectureInfo.isHasArchitecturalIssues());
 
@@ -194,6 +198,12 @@ public class ProjectAnalysisConsumer {
             log.info("Project analysis completed: projectId={}, totalFiles={}, totalIssues={}",
                     projectId, projectFiles.size(), totalIssues);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Project analysis blocked by AI usage limiter: projectId={}, message={}",
+                    project.getId(), e.getMessage());
+
+            project.setStatus(Project.ProjectStatus.FAILED);
+            projectRepository.save(project);
         } catch (Exception e) {
             log.error("Project analysis failed: projectId={}", project.getId(), e);
 
@@ -297,6 +307,15 @@ public class ProjectAnalysisConsumer {
                     file.getFileName(), review.getId(), issues.size());
             return issues.size();
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("File analysis blocked by AI usage limiter: fileId={}, fileName={}, message={}",
+                    file.getId(), file.getFileName(), e.getMessage());
+            if (review != null) {
+                review.setStatus(CodeReview.ReviewStatus.FAILED);
+                codeReviewRepository.save(review);
+                file.setReviewId(review.getId());
+            }
+            throw e;
         } catch (Exception e) {
             log.error("File analysis failed: fileId={}, fileName={}", file.getId(), file.getFileName(), e);
             if (review != null) {
@@ -416,10 +435,11 @@ public class ProjectAnalysisConsumer {
      * Uses ALL AI agents (CodeStandardsInspector, ArchitectureGuardian, SecurityAuditor, PerformanceOptimizer)
      * to provide comprehensive project analysis with detailed markdown report
      */
-    private ProjectArchitectureInfo analyzeProjectArchitecture(Path projectRoot, List<ProjectFile> files, Long projectId) {
+    private ProjectArchitectureInfo analyzeProjectArchitecture(Path projectRoot, List<ProjectFile> files, Project project) {
         log.info("🤖 AI-Powered comprehensive analysis: fileCount={}", files.size());
 
         ProjectArchitectureInfo info = new ProjectArchitectureInfo();
+        Long projectId = project.getId();
 
         // Enhanced data structures
         List<FileIssueDetail> fileIssueDetails = new ArrayList<>();
@@ -468,7 +488,7 @@ public class ProjectAnalysisConsumer {
                     // Build context for AI analysis
                     AgentExecutionContext context = AgentExecutionContext.builder()
                             .requestId("project-analysis-" + projectId + "-" + file.getId())
-                            .userId(1L)
+                            .userId(project.getUserId())
                             .code(codeContent)
                             .language(file.getLanguage() != null ? file.getLanguage() : "UNKNOWN")
                             .filePath(file.getFilePath())
@@ -550,6 +570,9 @@ public class ProjectAnalysisConsumer {
                     filesAnalyzed++;
 
                 } catch (Exception e) {
+                    if (AiUsageLimitExceededException.causedBy(e)) {
+                        throw e;
+                    }
                     log.warn("Failed to analyze file: {}", file.getFileName(), e);
                 }
             }
@@ -606,6 +629,8 @@ public class ProjectAnalysisConsumer {
             log.info("✅ AI comprehensive analysis complete: filesAnalyzed={}, filesWithIssues={}, totalIssues={}, agents={}",
                     filesAnalyzed, filesWithIssues, totalIssues, issuesByAgent.keySet());
 
+        } catch (AiUsageLimitExceededException e) {
+            throw e;
         } catch (Exception e) {
             log.error("❌ AI comprehensive analysis failed", e);
             info.setArchitecturalIssues(List.of("AI分析失败: " + e.getMessage()));

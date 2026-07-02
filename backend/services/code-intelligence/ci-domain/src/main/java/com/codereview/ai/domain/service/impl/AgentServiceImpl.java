@@ -8,6 +8,7 @@ import com.codereview.ai.domain.agent.shared.mentor.LearningPathPlanner;
 import com.codereview.ai.domain.model.*;
 import com.codereview.ai.domain.repository.*;
 import com.codereview.ai.domain.service.*;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -74,6 +75,11 @@ public class AgentServiceImpl implements AgentService {
             log.info("Code review completed: reviewId={}, issues found={}",
                     review.getId(), review.getTotalIssues());
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Code review blocked by AI usage limiter: reviewId={}, message={}", review.getId(), e.getMessage());
+            review.setStatus(CodeReview.ReviewStatus.FAILED);
+            codeReviewRepository.save(review);
+            throw e;
         } catch (Exception e) {
             log.error("Code review failed", e);
             review.setStatus(CodeReview.ReviewStatus.FAILED);

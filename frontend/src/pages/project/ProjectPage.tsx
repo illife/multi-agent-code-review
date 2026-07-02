@@ -16,6 +16,10 @@ import {
   Network,
   FileText,
   FileSearch,
+  BrainCircuit,
+  Globe2,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
@@ -274,71 +278,97 @@ const ProjectPage: React.FC = () => {
       completedProjects: projects.filter((project) => project.status === 'COMPLETED').length,
       analyzingProjects: projects.filter((project) => project.status === 'ANALYZING' || project.status === 'PENDING').length,
       totalIssues: projects.reduce((sum, project) => sum + (project.totalIssues || 0), 0),
+      publicProjects: projects.filter((project) => project.visibility === 'PUBLIC').length,
     }
   }, [projects])
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            项目管理
-          </h1>
-          <p className="mt-1 text-slate-600 dark:text-slate-400">
-            上传 ZIP 项目包，分析完成后可直接进入文件级代码审查。
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to="/review">
-            <Button variant="outline">
-              <FileSearch className="h-4 w-4" />
-              代码审查
+    <div className="mx-auto max-w-[1500px] p-4 text-slate-100 sm:p-6 lg:p-8">
+      <section className="relative mb-6 overflow-hidden rounded-lg border border-white/10 bg-white/[0.06] p-6 shadow-[0_30px_100px_rgba(2,6,23,0.3)] backdrop-blur-xl lg:p-8">
+        <div className="absolute inset-0 cv-grid opacity-30" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="cv-kicker">
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              project intelligence hub
+            </div>
+            <h1 className="mt-5 text-4xl font-black tracking-normal text-white">项目管理</h1>
+            <p className="mt-3 text-base leading-7 text-slate-300">
+              上传 ZIP 项目包后自动分片入库、后台异步分析。公开项目可被所有账号查看与审查，适合面试时预置演示项目；删除权限只保留给项目创建者。
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to="/review">
+              <Button variant="outline" className="border-white/15 text-slate-100 hover:bg-white/10">
+                <FileSearch className="h-4 w-4" />
+                进入代码审查
+              </Button>
+            </Link>
+            <Button onClick={() => setShowUploadModal(true)} className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
+              <Plus className="h-4 w-4" />
+              上传项目
             </Button>
-          </Link>
-          <Button onClick={() => setShowUploadModal(true)}>
-            <Plus className="h-4 w-4" />
-            上传项目
-          </Button>
+          </div>
         </div>
-      </div>
+
+        <div className="relative mt-6 grid gap-3 md:grid-cols-3">
+          {[
+            { icon: BrainCircuit, label: '后台异步分析', value: '队列处理中' },
+            { icon: Globe2, label: '公开项目复用', value: `${dashboardStats.publicProjects} 个` },
+            { icon: ShieldCheck, label: '删除权限保护', value: '仅创建者' },
+          ].map((item) => {
+            const Icon = item.icon
+            return (
+              <div key={item.label} className="rounded-lg border border-white/10 bg-slate-950/35 p-4">
+                <div className="flex items-center gap-3">
+                  <Icon className="h-5 w-5 text-emerald-300" />
+                  <span className="text-sm text-slate-400">{item.label}</span>
+                </div>
+                <p className="mt-2 font-mono text-lg font-bold text-white">{item.value}</p>
+              </div>
+            )
+          })}
+        </div>
+      </section>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500">项目总数</p>
-          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{dashboardStats.totalProjects}</p>
+        <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4 backdrop-blur">
+          <p className="text-sm text-slate-400">项目总数</p>
+          <p className="mt-1 text-2xl font-black text-white">{dashboardStats.totalProjects}</p>
         </div>
-        <div className="rounded-lg border border-success-200 bg-success-50 p-4 dark:border-success-900/40 dark:bg-success-900/20">
-          <p className="text-sm text-slate-500">已完成</p>
-          <p className="mt-1 text-2xl font-bold text-success-700 dark:text-success-300">{dashboardStats.completedProjects}</p>
+        <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-4">
+          <p className="text-sm text-emerald-100/80">已完成</p>
+          <p className="mt-1 text-2xl font-black text-emerald-200">{dashboardStats.completedProjects}</p>
         </div>
-        <div className="rounded-lg border border-primary-200 bg-primary-50 p-4 dark:border-primary-900/40 dark:bg-primary-900/20">
-          <p className="text-sm text-slate-500">进行中</p>
-          <p className="mt-1 text-2xl font-bold text-primary-700 dark:text-primary-300">{dashboardStats.analyzingProjects}</p>
+        <div className="rounded-lg border border-sky-300/25 bg-sky-300/10 p-4">
+          <p className="text-sm text-sky-100/80">进行中</p>
+          <p className="mt-1 text-2xl font-black text-sky-200">{dashboardStats.analyzingProjects}</p>
         </div>
-        <div className="rounded-lg border border-warning-200 bg-warning-50 p-4 dark:border-warning-900/40 dark:bg-warning-900/20">
-          <p className="text-sm text-slate-500">累计问题</p>
-          <p className="mt-1 text-2xl font-bold text-warning-700 dark:text-warning-300">{dashboardStats.totalIssues}</p>
+        <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-4">
+          <p className="text-sm text-amber-100/80">累计问题</p>
+          <p className="mt-1 text-2xl font-black text-amber-200">{dashboardStats.totalIssues}</p>
         </div>
       </div>
 
-      <Card variant="bordered">
+      <Card variant="bordered" className="border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur">
         <CardHeader>
-          <CardTitle>可访问项目</CardTitle>
-          <CardDescription>查看自己的项目和公开演示项目，分析完成后可直接进入文件级审查</CardDescription>
+          <CardTitle className="text-white">可访问项目</CardTitle>
+          <CardDescription className="text-slate-400">查看自己的项目和公开演示项目，分析完成后可直接进入文件级审查</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-12 text-slate-500">加载中...</div>
+            <div className="py-12 text-center text-slate-400">加载中...</div>
           ) : projects.length === 0 ? (
             <div className="text-center py-12">
-              <FolderKanban className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+              <FolderKanban className="mx-auto mb-4 h-16 w-16 text-slate-600" />
+              <h3 className="mb-2 text-lg font-medium text-white">
                 还没有项目
               </h3>
-              <p className="text-slate-600 dark:text-slate-400 mb-4">
+              <p className="mb-4 text-slate-400">
                 上传你的第一个ZIP项目文件开始分析
               </p>
-              <Button onClick={() => setShowUploadModal(true)}>
+              <Button onClick={() => setShowUploadModal(true)} className="bg-emerald-300 text-slate-950 hover:bg-emerald-200">
                 <Upload className="h-4 w-4 mr-2" />
                 上传项目
               </Button>
@@ -348,26 +378,28 @@ const ProjectPage: React.FC = () => {
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  className="flex items-center gap-4 p-4 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="flex flex-col gap-4 rounded-lg border border-white/10 bg-slate-950/35 p-4 transition hover:border-emerald-300/30 hover:bg-white/[0.07] lg:flex-row lg:items-center"
                 >
                   <div className={`rounded-full p-2 ${
                     project.status === 'COMPLETED'
-                      ? 'bg-success-100 text-success-600'
+                      ? 'bg-emerald-300/15 text-emerald-300'
                       : project.status === 'ANALYZING'
-                      ? 'bg-primary-100 text-primary-600'
+                      ? 'bg-sky-300/15 text-sky-300'
                       : project.status === 'FAILED'
-                      ? 'bg-error-100 text-error-600'
-                      : 'bg-slate-100 text-slate-600'
+                      ? 'bg-rose-300/15 text-rose-300'
+                      : 'bg-white/10 text-slate-300'
                   }`}>
                     {getStatusIcon(project.status)}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                    <h4 className="truncate font-semibold text-white">
                       {project.projectName}
                     </h4>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-400">
                       <span>{project.totalFiles} 个文件</span>
+                      <span>•</span>
+                      <span>{project.totalSize ? formatFileSize(project.totalSize) : '大小未知'}</span>
                       <span>•</span>
                       <span>{formatDate(project.createdAt)}</span>
                       {project.language && (
@@ -402,6 +434,7 @@ const ProjectPage: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="border-white/15 text-slate-100 hover:bg-white/10"
                       onClick={() => openProjectDetail(project)}
                     >
                       <Eye className="h-4 w-4" />
@@ -412,6 +445,7 @@ const ProjectPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="text-slate-300 hover:bg-white/10"
                         onClick={() => handleDelete(project.id, project.projectName)}
                       >
                         <Trash2 className="h-4 w-4 text-error-600" />

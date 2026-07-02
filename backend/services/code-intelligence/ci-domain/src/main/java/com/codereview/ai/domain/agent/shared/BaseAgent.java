@@ -1,8 +1,12 @@
 package com.codereview.ai.domain.agent.shared;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
+import com.think.platform.shared.infra.ai.AiUsageLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 
 /**
  * Agent 基类
@@ -15,6 +19,13 @@ public abstract class BaseAgent {
 
     @Autowired
     protected ObjectMapper objectMapper;
+
+    @Autowired(required = false)
+    @Nullable
+    private AiUsageLimiter aiUsageLimiter;
+
+    @Value("${ai.usage-limit.agent-output-token-reserve:3000}")
+    private int outputTokenReserve;
 
     /**
      * 获取 Agent 类型 (由子类实现)
@@ -81,6 +92,13 @@ public abstract class BaseAgent {
             log.debug("System prompt: {}", systemPrompt);
             log.debug("User prompt length: {}", userPrompt.length());
 
+            if (aiUsageLimiter != null) {
+                int estimatedTokens = AiUsageLimiter.estimateTokens(systemPrompt)
+                        + AiUsageLimiter.estimateTokens(userPrompt)
+                        + outputTokenReserve;
+                aiUsageLimiter.checkAndConsume(context.getUserId(), getAgentType(), estimatedTokens);
+            }
+
             // 调用 AI 服务
             String aiResponse = context.getAiService().chat(systemPrompt, userPrompt);
 
@@ -92,6 +110,9 @@ public abstract class BaseAgent {
             log.info("Agent {} completed in {}ms", getName(), result.getExecutionTimeMs());
             return result;
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Agent {} blocked by AI usage limiter: {}", getName(), e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Agent {} execution failed", getName(), e);
 

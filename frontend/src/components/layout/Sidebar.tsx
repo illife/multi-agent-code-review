@@ -18,16 +18,17 @@ export interface SidebarItem {
   title: string
   path: string
   icon: React.ComponentType<{ className?: string }>
+  description: string
   badge?: number | string
 }
 
 const sidebarItems: SidebarItem[] = [
-  { title: '仪表板', path: '/dashboard', icon: LayoutDashboard },
-  { title: '知识库', path: '/knowledge/documents', icon: BookOpen },
-  { title: '智能问答', path: '/knowledge/qa', icon: MessageSquare },
-  { title: '文档搜索', path: '/knowledge/search', icon: SearchIcon },
-  { title: '代码审查', path: '/review', icon: Code2 },
-  { title: '项目管理', path: '/projects', icon: FolderKanban },
+  { title: '仪表板', path: '/dashboard', icon: LayoutDashboard, description: '系统总览' },
+  { title: '知识库', path: '/knowledge/documents', icon: BookOpen, description: '文档索引' },
+  { title: '智能问答', path: '/knowledge/qa', icon: MessageSquare, description: 'RAG 问答' },
+  { title: '文档搜索', path: '/knowledge/search', icon: SearchIcon, description: '语义检索' },
+  { title: '代码审查', path: '/review', icon: Code2, description: '5-Agent 协作' },
+  { title: '项目管理', path: '/projects', icon: FolderKanban, description: '项目级分析' },
 ]
 
 interface SidebarProps {
@@ -41,24 +42,31 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transition-all duration-300',
+        'fixed left-0 top-0 z-40 h-screen border-r border-white/10 bg-slate-950/95 text-slate-200 shadow-[24px_0_80px_rgba(2,6,23,0.34)] backdrop-blur-2xl transition-all duration-300',
+        collapsed ? '-translate-x-full lg:translate-x-0' : 'translate-x-0',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <Bot className="h-6 w-6 text-primary-600" />
-            <span className="text-lg font-semibold">CodeReview AI</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-300/30 bg-emerald-300/15 text-emerald-200">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="block text-lg font-black leading-5 text-white">CodeView</span>
+              <span className="text-xs text-slate-400">AI Review Lab</span>
+            </div>
           </div>
         )}
         <button
           onClick={onToggle}
           className={cn(
-            'rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors',
+            'rounded-lg border border-white/10 bg-white/5 p-1.5 text-slate-300 transition hover:bg-white/10',
             collapsed && 'mx-auto'
           )}
+          aria-label={collapsed ? '展开导航' : '收起导航'}
         >
           {collapsed ? (
             <ChevronRight className="h-5 w-5" />
@@ -69,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4">
+      <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-1">
           {sidebarItems.map((item) => {
             const Icon = item.icon
@@ -81,22 +89,28 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                   to={item.path}
                   className={({ isActive: navIsActive }) =>
                     cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                      'hover:bg-slate-100 dark:hover:bg-slate-800',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                      'group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all',
+                      'hover:bg-white/10 hover:text-white',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400',
                       isActive || navIsActive
-                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-300'
-                        : 'text-slate-700 dark:text-slate-300',
+                        ? 'bg-emerald-300/15 text-white shadow-[inset_3px_0_0_#34d399]'
+                        : 'text-slate-400',
                       collapsed && 'justify-center px-2'
                     )
                   }
+                  title={collapsed ? item.title : undefined}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <Icon className="h-5 w-5 flex-shrink-0 text-current" />
                   {!collapsed && (
                     <>
-                      <span>{item.title}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm leading-5">{item.title}</span>
+                        <span className="block truncate text-xs font-normal text-slate-500 group-hover:text-slate-400">
+                          {item.description}
+                        </span>
+                      </span>
                       {item.badge && (
-                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-xs text-white">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-xs text-slate-950">
                           {item.badge}
                         </span>
                       )}
@@ -110,19 +124,33 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
       </nav>
 
       {/* User Section */}
-      <div className="border-t border-slate-200 dark:border-slate-700 p-4">
+      <div className="border-t border-white/10 p-4">
+        {!collapsed && (
+          <div className="mb-3 rounded-lg border border-white/10 bg-white/[0.04] p-3">
+            <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
+              <span>Agent 编排</span>
+              <span className="font-mono text-emerald-300">5 online</span>
+            </div>
+            <div className="mt-2 grid grid-cols-5 gap-1">
+              {[0, 1, 2, 3, 4].map((item) => (
+                <span key={item} className="h-1.5 rounded-full bg-emerald-300" />
+              ))}
+            </div>
+          </div>
+        )}
         <NavLink
           to="/profile"
           className={({ isActive }) =>
             cn(
               'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-              'hover:bg-slate-100 dark:hover:bg-slate-800',
+              'hover:bg-white/10',
               isActive
-                ? 'bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-300'
-                : 'text-slate-700 dark:text-slate-300',
+                ? 'bg-emerald-300/15 text-white'
+                : 'text-slate-400',
               collapsed && 'justify-center px-2'
             )
           }
+          title={collapsed ? '个人设置' : undefined}
         >
           <User className="h-5 w-5 flex-shrink-0" />
           {!collapsed && <span>个人设置</span>}

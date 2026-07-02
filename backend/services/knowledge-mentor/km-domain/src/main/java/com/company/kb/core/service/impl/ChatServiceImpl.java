@@ -2,8 +2,14 @@ package com.company.kb.core.service.impl;
 
 import com.company.kb.core.service.ChatService;
 import com.company.kb.infra.ai.chat.ChatProvider;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
+import com.think.platform.shared.infra.ai.AiUsageLimiter;
+import com.think.platform.shared.infra.ai.AiUsagePrincipalResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,12 +23,21 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatProvider chatProvider;
 
+    @Autowired(required = false)
+    @Nullable
+    private AiUsageLimiter aiUsageLimiter;
+
+    @Value("${ai.usage-limit.chat-output-token-reserve:2000}")
+    private int outputTokenReserve;
+
     @Override
     public String generateAnswer(String question, String context) throws Exception {
         log.info("Generating answer for question: {}", question);
 
         // Build RAG prompt
         String prompt = buildRAGPrompt(question, context);
+
+        checkQuota("knowledge-chat", question, prompt);
 
         // Generate answer using AI provider
         String answer = chatProvider.generateAnswer(question, prompt);
@@ -37,6 +52,8 @@ public class ChatServiceImpl implements ChatService {
 
         // Build RAG prompt
         String prompt = buildRAGPrompt(question, context);
+
+        checkQuota("knowledge-chat-stream", question, prompt);
 
         // Stream answer using AI provider
         chatProvider.streamAnswer(question, prompt, new ChatProvider.StreamCallback() {
@@ -94,5 +111,21 @@ public class ChatServiceImpl implements ChatService {
 
                 Answer:
                 """, context, question);
+    }
+
+    private void checkQuota(String feature, String question, String prompt) {
+        if (aiUsageLimiter == null) {
+            return;
+        }
+
+        int estimatedTokens = AiUsageLimiter.estimateTokens(question)
+                + AiUsageLimiter.estimateTokens(prompt)
+                + outputTokenReserve;
+        try {
+            aiUsageLimiter.checkAndConsume(AiUsagePrincipalResolver.currentPrincipal(), feature, estimatedTokens);
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Knowledge chat blocked by AI usage limiter: feature={}, message={}", feature, e.getMessage());
+            throw e;
+        }
     }
 }

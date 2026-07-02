@@ -2,6 +2,7 @@ package com.codereview.ai.api.controller;
 
 import com.think.platform.shared.common.result.Result;
 import com.think.platform.shared.common.result.ResultCode;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import com.codereview.ai.domain.model.CodeIssue;
 import com.codereview.ai.domain.model.CodeReview;
 import com.codereview.ai.domain.model.Project;
@@ -66,6 +67,9 @@ public class CodeReviewController {
 
             return Result.success(result);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Code review blocked by AI usage limiter: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Code review processing failed", e);
             return Result.error("Code review failed: " + e.getMessage());

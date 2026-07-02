@@ -94,6 +94,17 @@ qwen:
   retry-max-attempts: ${QWEN_RETRY_MAX:3}
   retry-initial-delay: ${QWEN_RETRY_DELAY:2000}
 
+ai:
+  enabled: true
+  usage-limit:
+    enabled: ${AI_USAGE_LIMIT_ENABLED:true}
+    daily-token-budget: ${AI_DAILY_TOKEN_BUDGET:120000}
+    site-daily-token-budget: ${AI_SITE_DAILY_TOKEN_BUDGET:800000}
+    minute-call-limit: ${AI_MINUTE_CALL_LIMIT:8}
+    agent-output-token-reserve: ${AI_AGENT_OUTPUT_TOKEN_RESERVE:3000}
+    chat-output-token-reserve: ${AI_CHAT_OUTPUT_TOKEN_RESERVE:2000}
+    fail-open: ${AI_USAGE_LIMIT_FAIL_OPEN:false}
+
 # ReAct Agent Configuration
 react:
   enabled: ${REACT_ENABLED:true}
@@ -291,7 +302,3 @@ knife4j:
     swagger-model-name: 实体类列表
   production: false # 生产环境关闭
   cors: false # 禁用 Knife4j 跨域 - 由 API Gateway 处理
-# AI Configuration
-ai:
-  enabled: true
-

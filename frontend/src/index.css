@@ -10,9 +10,36 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+    @apply bg-slate-950 text-slate-900 font-sans antialiased;
     font-feature-settings: "cv11", "ss01";
     font-variation-settings: "wght" 400;
+  }
+
+  * {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950;
+  }
+
+  ::selection {
+    @apply bg-emerald-300 text-slate-950;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0f172a;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border: 2px solid #0f172a;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #475569;
   }
 
   /* Dark mode support */
@@ -26,6 +53,29 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .cv-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .cv-scanline {
+    background-image: linear-gradient(110deg, transparent 0%, rgba(34, 197, 94, 0.14) 45%, transparent 64%);
+  }
+
+  .cv-panel {
+    @apply border border-white/10 bg-white/[0.06] shadow-[0_24px_80px_rgba(2,6,23,0.26)] backdrop-blur-xl;
+  }
+
+  .cv-light-panel {
+    @apply border border-slate-200/80 bg-white/95 shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur-xl;
+  }
+
+  .cv-kicker {
+    @apply inline-flex items-center gap-2 rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-3 py-1 text-xs font-semibold uppercase text-emerald-200;
   }
 }
 

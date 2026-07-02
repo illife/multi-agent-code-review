@@ -5,6 +5,7 @@ import com.company.kb.core.service.ChunkInfo;
 import com.company.kb.core.service.QAService;
 import com.company.kb.core.service.VectorEmbeddingService;
 import com.company.kb.infra.elasticsearch.service.ElasticsearchService;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,21 +33,17 @@ public class QAServiceImpl implements QAService {
     public AnswerDTO processQuery(String question, String userId) throws Exception {
         log.info("Processing query from user {}: {}", userId, question);
 
-        // 1. Generate query vector
-        float[] queryVector = vectorEmbeddingService.generateEmbedding(question);
-        log.debug("Query vector generated, dimensions: {}", queryVector.length);
-
-        // 2. Search relevant chunks via Elasticsearch (hybrid BM25 + KNN)
+        // 1. Search relevant chunks via Elasticsearch (hybrid BM25 + KNN)
         List<ChunkInfo> chunks = retrieveRelevantChunks(question, userId);
         log.info("Found {} relevant chunks", chunks.size());
 
-        // 3. Build context
+        // 2. Build context
         String context = buildContext(chunks);
 
-        // 4. Generate answer using AI
+        // 3. Generate answer using AI
         String answer = chatService.generateAnswer(question, context);
 
-        // 5. Build response
+        // 4. Build response
         AnswerDTO response = AnswerDTO.builder()
                 .answer(answer)
                 .sources(buildSources(chunks))
@@ -112,6 +109,9 @@ public class QAServiceImpl implements QAService {
             log.info("Retrieved {} chunks for query", chunks.size());
             return chunks;
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Chunk retrieval blocked by AI usage limiter: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Failed to retrieve chunks for query: {}", query, e);
             return new ArrayList<>();

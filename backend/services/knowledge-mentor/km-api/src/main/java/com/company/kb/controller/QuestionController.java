@@ -2,6 +2,7 @@ package com.company.kb.controller;
 
 import com.think.platform.shared.common.result.Result;
 import com.company.kb.core.service.QAService;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -39,6 +40,9 @@ public class QuestionController {
 
             return Result.success(answer);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Question blocked by AI usage limiter: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Question processing failed", e);
             return Result.failed(500, "Question processing failed: " + e.getMessage());
@@ -63,6 +67,9 @@ public class QuestionController {
 
             return Result.success(chunks);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Chunk retrieval blocked by AI usage limiter: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("Chunk retrieval failed", e);
             return Result.failed(500, "Chunk retrieval failed: " + e.getMessage());

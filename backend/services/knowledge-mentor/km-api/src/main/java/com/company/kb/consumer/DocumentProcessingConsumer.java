@@ -10,6 +10,9 @@ import com.company.kb.infra.ai.embedding.EmbeddingProvider;
 import com.company.kb.infra.document.DocumentParserService;
 import com.company.kb.infra.elasticsearch.service.ElasticsearchService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
+import com.think.platform.shared.infra.ai.AiUsageLimiter;
+import com.think.platform.shared.infra.ai.AiUsagePrincipalResolver;
 import com.think.platform.shared.infra.minio.MinioStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
@@ -18,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +65,7 @@ public class DocumentProcessingConsumer {
     private final ElasticsearchService elasticsearchService;
     private final MinioStorageService minioStorageService;
     private final ObjectMapper objectMapper;
+    private final AiUsageLimiter aiUsageLimiter;
 
     @Autowired
     public DocumentProcessingConsumer(
@@ -71,7 +76,8 @@ public class DocumentProcessingConsumer {
             @Qualifier("qwenEmbeddingProvider") EmbeddingProvider embeddingProvider,
             ElasticsearchService elasticsearchService,
             MinioStorageService minioStorageService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Nullable AiUsageLimiter aiUsageLimiter) {
         this.documentRepository = documentRepository;
         this.documentChunkRepository = documentChunkRepository;
         this.documentParserService = documentParserService;
@@ -80,6 +86,7 @@ public class DocumentProcessingConsumer {
         this.elasticsearchService = elasticsearchService;
         this.minioStorageService = minioStorageService;
         this.objectMapper = objectMapper;
+        this.aiUsageLimiter = aiUsageLimiter;
     }
 
     /**
@@ -138,6 +145,14 @@ public class DocumentProcessingConsumer {
                 log.info("消息已确认: documentId={}", documentId);
             }
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("文档处理因 AI 额度限制停止: documentId={}, message={}", documentId, e.getMessage());
+            if (documentId != null) {
+                updateDocumentStatus(documentId, Document.DocumentStatus.FAILED);
+            }
+            if (acknowledgment != null) {
+                acknowledgment.acknowledge();
+            }
         } catch (Exception e) {
             log.error("文档处理失败: documentId={}, error={}",
                 documentId, e.getMessage(), e);
@@ -168,6 +183,9 @@ public class DocumentProcessingConsumer {
             try {
                 processDocument(documentId);
                 return; // Success - exit retry loop
+            } catch (AiUsageLimitExceededException e) {
+                log.warn("文档处理被 AI 额度限制拦截: documentId={}, message={}", documentId, e.getMessage());
+                throw e;
             } catch (Exception e) {
                 retryCount++;
                 log.warn("文档处理失败 (尝试 {}/{}): documentId={}, error={}",
@@ -230,7 +248,7 @@ public class DocumentProcessingConsumer {
             documentId, chunks.size());
 
         // Step 6: Generate embeddings for chunks
-        embedChunks(chunks);
+        embedChunks(chunks, document);
         log.info("向量生成完成: documentId={}, chunkCount={}",
             documentId, chunks.size());
 
@@ -348,7 +366,7 @@ public class DocumentProcessingConsumer {
      * @param chunks List of document chunks
      * @throws Exception if embedding generation fails
      */
-    private void embedChunks(List<DocumentChunk> chunks) throws Exception {
+    private void embedChunks(List<DocumentChunk> chunks, Document document) throws Exception {
         if (chunks == null || chunks.isEmpty()) {
             log.warn("文档块列表为空，跳过向量化");
             return;
@@ -362,6 +380,8 @@ public class DocumentProcessingConsumer {
             for (DocumentChunk chunk : chunks) {
                 texts.add(chunk.getTextContent());
             }
+
+            checkEmbeddingQuota(document, texts);
 
             // Generate embeddings in batch (up to 10 at a time)
             List<float[]> embeddings = embeddingProvider.generateEmbeddingsBatch(texts);
@@ -383,11 +403,29 @@ public class DocumentProcessingConsumer {
             log.info("向量生成完成: chunkCount={}, dimensions={}",
                 chunks.size(), embeddings.get(0).length);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("文档向量化被 AI 额度限制拦截: documentId={}, message={}",
+                    document.getId(), e.getMessage());
+            throw e;
         } catch (Exception e) {
             log.error("向量生成失败: chunkCount={}, error={}",
                 chunks.size(), e.getMessage(), e);
             throw new Exception("向量生成失败: " + e.getMessage(), e);
         }
+    }
+
+    private void checkEmbeddingQuota(Document document, List<String> texts) {
+        if (aiUsageLimiter == null) {
+            return;
+        }
+
+        int estimatedTokens = texts.stream()
+                .mapToInt(AiUsageLimiter::estimateTokens)
+                .sum();
+        aiUsageLimiter.checkAndConsume(
+                AiUsagePrincipalResolver.principalForUsername(document.getUploadedBy()),
+                "document-embedding",
+                estimatedTokens);
     }
 
     /**

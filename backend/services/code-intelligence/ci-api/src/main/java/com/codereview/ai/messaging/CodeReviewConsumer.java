@@ -9,6 +9,7 @@ import com.codereview.ai.domain.model.TeachingReport;
 import com.codereview.ai.domain.repository.CodeIssueRepository;
 import com.codereview.ai.domain.repository.CodeReviewRepository;
 import com.codereview.ai.domain.repository.TeachingReportRepository;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -134,7 +135,26 @@ public class CodeReviewConsumer {
                     review.getFileName(), review.getUserId(), totalIssues, criticalCount,
                     highCount, mediumCount, lowCount);
 
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Code review blocked by AI usage limiter: reviewId={}, message={}", reviewId, e.getMessage());
+            CodeReview review = reviewRepository.findById(reviewId).orElse(null);
+            if (review != null) {
+                review.setStatus(CodeReview.ReviewStatus.FAILED);
+                reviewRepository.save(review);
+            }
         } catch (Exception e) {
+            AiUsageLimitExceededException quotaException = AiUsageLimitExceededException.find(e);
+            if (quotaException != null) {
+                log.warn("Code review blocked by AI usage limiter: reviewId={}, message={}",
+                        reviewId, quotaException.getMessage());
+                CodeReview review = reviewRepository.findById(reviewId).orElse(null);
+                if (review != null) {
+                    review.setStatus(CodeReview.ReviewStatus.FAILED);
+                    reviewRepository.save(review);
+                }
+                return;
+            }
+
             log.error("====================================");
             log.error("Code review processing failed: reviewId={}", reviewId);
             log.error("Error type: {}", e.getClass().getName());
@@ -269,7 +289,12 @@ public class CodeReviewConsumer {
 
             } catch (Exception e) {
                 // 教学报告生成失败不应影响主流程
-                log.error("Failed to generate teaching report for reviewId={} (non-critical)", reviewId, e);
+                if (AiUsageLimitExceededException.causedBy(e)) {
+                    log.warn("Teaching report skipped by AI usage limiter: reviewId={}, message={}",
+                            reviewId, e.getMessage());
+                } else {
+                    log.error("Failed to generate teaching report for reviewId={} (non-critical)", reviewId, e);
+                }
             }
         }, "teaching-report-" + reviewId).start();
     }

@@ -138,6 +138,13 @@ jobs:
           QWEN_CHAT_MODEL: ${{ secrets.QWEN_CHAT_MODEL }}
           QWEN_CHAT_MODELS: ${{ secrets.QWEN_CHAT_MODELS }}
           QWEN_EMBEDDING_MODEL: ${{ secrets.QWEN_EMBEDDING_MODEL }}
+          AI_USAGE_LIMIT_ENABLED: ${{ secrets.AI_USAGE_LIMIT_ENABLED }}
+          AI_DAILY_TOKEN_BUDGET: ${{ secrets.AI_DAILY_TOKEN_BUDGET }}
+          AI_SITE_DAILY_TOKEN_BUDGET: ${{ secrets.AI_SITE_DAILY_TOKEN_BUDGET }}
+          AI_MINUTE_CALL_LIMIT: ${{ secrets.AI_MINUTE_CALL_LIMIT }}
+          AI_AGENT_OUTPUT_TOKEN_RESERVE: ${{ secrets.AI_AGENT_OUTPUT_TOKEN_RESERVE }}
+          AI_CHAT_OUTPUT_TOKEN_RESERVE: ${{ secrets.AI_CHAT_OUTPUT_TOKEN_RESERVE }}
+          AI_USAGE_LIMIT_FAIL_OPEN: ${{ secrets.AI_USAGE_LIMIT_FAIL_OPEN }}
           ELASTICSEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_ANALYZER }}
           ELASTICSEARCH_SEARCH_ANALYZER: ${{ secrets.ELASTICSEARCH_SEARCH_ANALYZER }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -162,6 +169,13 @@ jobs:
               "QWEN_CHAT_MODEL",
               "QWEN_CHAT_MODELS",
               "QWEN_EMBEDDING_MODEL",
+              "AI_USAGE_LIMIT_ENABLED",
+              "AI_DAILY_TOKEN_BUDGET",
+              "AI_SITE_DAILY_TOKEN_BUDGET",
+              "AI_MINUTE_CALL_LIMIT",
+              "AI_AGENT_OUTPUT_TOKEN_RESERVE",
+              "AI_CHAT_OUTPUT_TOKEN_RESERVE",
+              "AI_USAGE_LIMIT_FAIL_OPEN",
               "ELASTICSEARCH_ANALYZER",
               "ELASTICSEARCH_SEARCH_ANALYZER",
               "RESEND_API_KEY",

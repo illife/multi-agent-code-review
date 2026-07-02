@@ -2,8 +2,13 @@ package com.company.kb.core.service.impl;
 
 import com.company.kb.core.service.VectorEmbeddingService;
 import com.company.kb.infra.ai.embedding.EmbeddingProvider;
+import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
+import com.think.platform.shared.infra.ai.AiUsageLimiter;
+import com.think.platform.shared.infra.ai.AiUsagePrincipalResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,9 +24,15 @@ public class VectorEmbeddingServiceImpl implements VectorEmbeddingService {
 
     private final EmbeddingProvider embeddingProvider;
 
+    @Autowired(required = false)
+    @Nullable
+    private AiUsageLimiter aiUsageLimiter;
+
     @Override
     public float[] generateEmbedding(String text) throws Exception {
         log.debug("Generating embedding for text length: {}", text.length());
+
+        checkQuota("knowledge-embedding", text);
 
         float[] embedding = embeddingProvider.generateEmbedding(text);
 
@@ -33,11 +44,50 @@ public class VectorEmbeddingServiceImpl implements VectorEmbeddingService {
     public List<float[]> generateEmbeddingsBatch(List<String> texts) throws Exception {
         log.debug("Generating embeddings for {} texts", texts.size());
 
+        checkQuota("knowledge-embedding-batch", texts);
+
         List<float[]> embeddings = embeddingProvider.generateEmbeddingsBatch(texts);
 
         log.debug("Batch embeddings generated successfully: count={}, dimensions={}",
             embeddings.size(), embeddings.isEmpty() ? 0 : embeddings.get(0).length);
 
         return embeddings;
+    }
+
+    private void checkQuota(String feature, String text) {
+        if (aiUsageLimiter == null) {
+            return;
+        }
+
+        try {
+            aiUsageLimiter.checkAndConsume(
+                    AiUsagePrincipalResolver.currentPrincipal(),
+                    feature,
+                    AiUsageLimiter.estimateTokens(text));
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Knowledge embedding blocked by AI usage limiter: feature={}, message={}",
+                    feature, e.getMessage());
+            throw e;
+        }
+    }
+
+    private void checkQuota(String feature, List<String> texts) {
+        if (aiUsageLimiter == null) {
+            return;
+        }
+
+        int estimatedTokens = texts.stream()
+                .mapToInt(AiUsageLimiter::estimateTokens)
+                .sum();
+        try {
+            aiUsageLimiter.checkAndConsume(
+                    AiUsagePrincipalResolver.currentPrincipal(),
+                    feature,
+                    estimatedTokens);
+        } catch (AiUsageLimitExceededException e) {
+            log.warn("Knowledge embedding batch blocked by AI usage limiter: feature={}, count={}, message={}",
+                    feature, texts.size(), e.getMessage());
+            throw e;
+        }
     }
 }
