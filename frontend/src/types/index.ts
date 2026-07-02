@@ -388,6 +388,7 @@ export interface SearchRequest {
   page?: number
   size?: number
   documentType?: string
+  fileTypes?: string[]
   dateFrom?: string
   dateTo?: string
 }

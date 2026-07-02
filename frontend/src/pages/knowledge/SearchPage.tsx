@@ -25,6 +25,37 @@ interface SearchFilters {
   dateTo?: string
 }
 
+const getSearchResultKey = (result: SearchHitDto) => {
+  if (result.documentId != null && result.chunkIndex != null) {
+    return `${result.documentId}:${result.chunkIndex}`
+  }
+  if (result.id) {
+    return `id:${result.id}`
+  }
+  return `content:${result.fileName}:${result.content?.slice(0, 160) ?? ''}`
+}
+
+const dedupeSearchResults = (items: SearchHitDto[]) => {
+  const merged = new Map<string, SearchHitDto>()
+
+  items.forEach((item) => {
+    const key = getSearchResultKey(item)
+    const existing = merged.get(key)
+    if (!existing || item.score > existing.score) {
+      merged.set(key, item)
+    }
+  })
+
+  return Array.from(merged.values())
+}
+
+const formatRelevance = (score: number) => {
+  if (!Number.isFinite(score)) {
+    return '-'
+  }
+  return score.toFixed(2)
+}
+
 const SearchPage: React.FC = () => {
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<SearchFilters>({})
@@ -47,17 +78,18 @@ const SearchPage: React.FC = () => {
         query: searchQuery,
         page,
         size: 10,
-        documentType: filters.documentType,
+        fileTypes: filters.documentType ? [filters.documentType] : undefined,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
       }
 
       const response = await knowledgeService.search(request)
       if (response.code === 200 && response.data) {
+        const nextResults = dedupeSearchResults(response.data.results || [])
         if (page === 0) {
-          setResults(response.data.results || [])
+          setResults(nextResults)
         } else {
-          setResults((prev) => [...prev, ...(response.data.results || [])])
+          setResults((prev) => dedupeSearchResults([...prev, ...nextResults]))
         }
         setTotalPages(response.data.totalPages || 0)
       }
@@ -127,8 +159,8 @@ const SearchPage: React.FC = () => {
   }
 
   const averageScore = results.length
-    ? Math.round(results.reduce((sum, result) => sum + result.score, 0) / results.length * 100)
-    : 0
+    ? formatRelevance(results.reduce((sum, result) => sum + result.score, 0) / results.length)
+    : '-'
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length
 
@@ -141,7 +173,7 @@ const SearchPage: React.FC = () => {
         metrics={[
           { icon: Search, label: '当前查询', value: query || '未输入', tone: 'text-emerald-300' },
           { icon: Layers, label: '结果数量', value: results.length, tone: 'text-sky-300' },
-          { icon: BrainCircuit, label: '平均相关度', value: results.length ? `${averageScore}%` : '-', tone: 'text-violet-300' },
+          { icon: BrainCircuit, label: '平均相关度', value: averageScore, tone: 'text-violet-300' },
           { icon: SlidersHorizontal, label: '筛选条件', value: activeFilterCount, tone: 'text-amber-300' },
           { icon: CheckCircle, label: '检索模式', value: 'Hybrid', tone: 'text-emerald-300' },
         ]}
@@ -276,7 +308,7 @@ const SearchPage: React.FC = () => {
             ) : (
               results.map((result) => (
                 <Card
-                  key={result.id}
+                  key={getSearchResultKey(result)}
                   variant="bordered"
                   className="cursor-pointer border-white/10 bg-white/[0.06] text-slate-100 backdrop-blur transition hover:border-emerald-300/30 hover:bg-white/[0.085]"
                 >
@@ -295,7 +327,7 @@ const SearchPage: React.FC = () => {
                         variant="info"
                         className="border border-sky-300/25 bg-sky-300/10 text-sky-200"
                       >
-                        {(result.score * 100).toFixed(0)}% 相关度
+                        相关度 {formatRelevance(result.score)}
                       </Badge>
                     </div>
                     <div className="mb-3 flex items-center gap-4 text-xs text-slate-500">

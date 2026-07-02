@@ -199,14 +199,11 @@ public class SearchController {
             for (CompletableFuture<List<ElasticsearchService.SearchHit>> future : bm25Futures) {
                 List<ElasticsearchService.SearchHit> results = future.join();
                 for (ElasticsearchService.SearchHit hit : results) {
-                    String key = hit.getDocumentId() + "_" + hit.getId();
-                    if (!bm25Merged.containsKey(key)) {
-                        bm25Merged.put(key, hit);
-                    }
+                    mergeSearchHit(bm25Merged, hit);
                 }
             }
             List<ElasticsearchService.SearchHit> bm25Results = new ArrayList<>(bm25Merged.values());
-            List<ElasticsearchService.SearchHit> knnResults = knnFuture.join();
+            List<ElasticsearchService.SearchHit> knnResults = deduplicateSearchHits(knnFuture.join());
 
             log.info("BM25结果数: {} (来自{}个查询), KNN结果数: {}",
                 bm25Results.size(), expandedQueries.size(), knnResults.size());
@@ -224,16 +221,16 @@ public class SearchController {
                 log.info("BM25无结果，使用KNN语义搜索");
                 fusedResults = knnResults;
             }
+            fusedResults = deduplicateSearchHits(fusedResults);
 
             // 4. 应用分页
             int totalResults = fusedResults.size();
             int fromIndex = page * size;
             int toIndex = Math.min(fromIndex + size, totalResults);
 
-            List<ElasticsearchService.SearchHit> pagedResults = fusedResults.subList(
-                fromIndex,
-                toIndex
-            );
+            List<ElasticsearchService.SearchHit> pagedResults = fromIndex >= totalResults
+                ? new ArrayList<>()
+                : fusedResults.subList(fromIndex, toIndex);
 
             // 5. 计算总页数
             int totalPages = (int) Math.ceil((double) totalResults / size);
@@ -271,6 +268,47 @@ public class SearchController {
             log.error("混合搜索失败", e);
             return Result.failed(500, "搜索失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * Deduplicate repeated physical hits that point to the same document chunk.
+     */
+    private List<ElasticsearchService.SearchHit> deduplicateSearchHits(
+            List<ElasticsearchService.SearchHit> hits) {
+        Map<String, ElasticsearchService.SearchHit> merged = new LinkedHashMap<>();
+        if (hits == null) {
+            return new ArrayList<>();
+        }
+
+        for (ElasticsearchService.SearchHit hit : hits) {
+            mergeSearchHit(merged, hit);
+        }
+
+        return new ArrayList<>(merged.values());
+    }
+
+    private void mergeSearchHit(
+            Map<String, ElasticsearchService.SearchHit> merged,
+            ElasticsearchService.SearchHit hit) {
+        if (hit == null) {
+            return;
+        }
+
+        String key = buildChunkKey(hit);
+        ElasticsearchService.SearchHit existing = merged.get(key);
+        if (existing == null || hit.getScore() > existing.getScore()) {
+            merged.put(key, hit);
+        }
+    }
+
+    private String buildChunkKey(ElasticsearchService.SearchHit hit) {
+        if (hit.getDocumentId() != null && hit.getChunkIndex() != null) {
+            return hit.getDocumentId() + ":" + hit.getChunkIndex();
+        }
+        if (hit.getId() != null && !hit.getId().isBlank()) {
+            return "id:" + hit.getId();
+        }
+        return "content:" + hit.getFileName() + ":" + String.valueOf(hit.getContent()).hashCode();
     }
 
     /**

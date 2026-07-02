@@ -257,6 +257,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
                     searchHit.setTitle(hit.source().getTitle());
                     searchHit.setFileName(hit.source().getFileName());
                     searchHit.setDocumentId(hit.source().getDocumentId());
+                    searchHit.setChunkIndex(hit.source().getPosition());
                 }
                 return searchHit;
             })
@@ -331,7 +332,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         if (fileTypes != null && !fileTypes.isEmpty()) {
             boolBuilder.filter(f -> f
                 .terms(t -> t
-                    .field("file_type")
+                    .field("fileType")
                     .terms(tv -> tv
                         .value(fileTypes.stream()
                             .map(FieldValue::of)
@@ -344,7 +345,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         // 时间范围筛选
         if (dateFrom != null || dateTo != null) {
             var rangeQuery = new co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery.Builder();
-            rangeQuery.field("created_at");
+            rangeQuery.field("createdAt");
 
             if (dateFrom != null) {
                 rangeQuery.gte(co.elastic.clients.json.JsonData.of(dateFrom));
@@ -476,7 +477,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         if (fileTypes != null && !fileTypes.isEmpty()) {
             boolBuilder.filter(f -> f
                 .terms(t -> t
-                    .field("file_type")
+                    .field("fileType")
                     .terms(tv -> tv
                         .value(fileTypes.stream()
                             .map(FieldValue::of)
@@ -489,7 +490,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         // 时间范围筛选
         if (dateFrom != null || dateTo != null) {
             var rangeQuery = new co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery.Builder();
-            rangeQuery.field("created_at");
+            rangeQuery.field("createdAt");
 
             if (dateFrom != null) {
                 rangeQuery.gte(co.elastic.clients.json.JsonData.of(dateFrom));
@@ -534,6 +535,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
                     searchHit.setTitle(hit.source().getTitle());
                     searchHit.setFileName(hit.source().getFileName());
                     searchHit.setDocumentId(hit.source().getDocumentId());
+                    searchHit.setChunkIndex(hit.source().getPosition());
                 }
                 return searchHit;
             })
@@ -610,7 +612,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         if (fileTypes != null && !fileTypes.isEmpty()) {
             boolBuilder.filter(f -> f
                 .terms(t -> t
-                    .field("file_type")
+                    .field("fileType")
                     .terms(tv -> tv
                         .value(fileTypes.stream()
                             .map(FieldValue::of)
@@ -623,7 +625,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         // 时间范围筛选
         if (dateFrom != null || dateTo != null) {
             var rangeQuery = new co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery.Builder();
-            rangeQuery.field("created_at");
+            rangeQuery.field("createdAt");
 
             if (dateFrom != null) {
                 rangeQuery.gte(co.elastic.clients.json.JsonData.of(dateFrom));
@@ -758,7 +760,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         if (fileTypes != null && !fileTypes.isEmpty()) {
             boolBuilder.filter(f -> f
                 .terms(t -> t
-                    .field("file_type")
+                    .field("fileType")
                     .terms(tv -> tv
                         .value(fileTypes.stream()
                             .map(FieldValue::of)
@@ -771,7 +773,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
         // 时间范围筛选
         if (dateFrom != null || dateTo != null) {
             var rangeQuery = new co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery.Builder();
-            rangeQuery.field("created_at");
+            rangeQuery.field("createdAt");
 
             if (dateFrom != null) {
                 rangeQuery.gte(co.elastic.clients.json.JsonData.of(dateFrom));
@@ -797,7 +799,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
             .index(indexName)
             .from(from)
             .size(size)
-            .query(baseQuery)
+            .query(boolBuilder.build()._toQuery())
             .knn(k -> k
                 .field("contentVector")
                 .queryVector(queryVectorList)
@@ -822,6 +824,7 @@ public class ElasticsearchServiceImpl implements ElasticsearchService {
                     searchHit.setTitle(hit.source().getTitle());
                     searchHit.setFileName(hit.source().getFileName());
                     searchHit.setDocumentId(hit.source().getDocumentId());
+                    searchHit.setChunkIndex(hit.source().getPosition());
                 }
                 return searchHit;
             })
