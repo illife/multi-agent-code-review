@@ -137,6 +137,7 @@ jobs:
           QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
           QWEN_CHAT_MODEL: ${{ secrets.QWEN_CHAT_MODEL }}
           QWEN_CHAT_MODELS: ${{ secrets.QWEN_CHAT_MODELS }}
+          QWEN_ALLOWED_CHAT_MODELS: ${{ secrets.QWEN_ALLOWED_CHAT_MODELS }}
           QWEN_EMBEDDING_MODEL: ${{ secrets.QWEN_EMBEDDING_MODEL }}
           AI_USAGE_LIMIT_ENABLED: ${{ secrets.AI_USAGE_LIMIT_ENABLED }}
           AI_DAILY_TOKEN_BUDGET: ${{ secrets.AI_DAILY_TOKEN_BUDGET }}
@@ -168,6 +169,7 @@ jobs:
               "QWEN_API_KEY",
               "QWEN_CHAT_MODEL",
               "QWEN_CHAT_MODELS",
+              "QWEN_ALLOWED_CHAT_MODELS",
               "QWEN_EMBEDDING_MODEL",
               "AI_USAGE_LIMIT_ENABLED",
               "AI_DAILY_TOKEN_BUDGET",

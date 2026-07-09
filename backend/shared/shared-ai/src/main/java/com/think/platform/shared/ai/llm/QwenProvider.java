@@ -13,7 +13,9 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -38,6 +40,9 @@ public class QwenProvider implements LlmProvider {
     @Value("${qwen.chat-models:}")
     private String chatModels;
 
+    @Value("${qwen.allowed-chat-models:qwen3.6-flash}")
+    private String allowedChatModels;
+
     @Value("${qwen.embedding-model:text-embedding-v4}")
     private String embeddingModel;
 
@@ -50,6 +55,7 @@ public class QwenProvider implements LlmProvider {
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private List<String> chatModelPool = List.of();
+    private Set<String> allowedChatModelSet = Set.of();
 
     public QwenProvider() {
         this.webClient = WebClient.builder()
@@ -59,7 +65,9 @@ public class QwenProvider implements LlmProvider {
 
     @jakarta.annotation.PostConstruct
     public void init() {
+        this.allowedChatModelSet = parseAllowedModelSet(allowedChatModels);
         this.chatModelPool = parseModelPool(chatModels);
+        log.info("Qwen shared allowed chat models: {}", allowedChatModelSet);
         log.info("Qwen shared chat model pool: {}", chatModelPool.isEmpty() ? "disabled" : chatModelPool);
         if (!chatModelPool.isEmpty()) {
             log.info("Qwen shared non-streaming chat model pool: {}", compatibleNonStreamingModels());
@@ -249,14 +257,26 @@ public class QwenProvider implements LlmProvider {
         return Arrays.stream(rawModels.split(","))
                 .map(String::trim)
                 .filter(model -> !model.isEmpty())
+                .filter(this::isAllowedChatModel)
                 .distinct()
                 .toList();
+    }
+
+    private Set<String> parseAllowedModelSet(String rawModels) {
+        if (rawModels == null || rawModels.isBlank()) {
+            return Set.of("qwen3.6-flash");
+        }
+        return Arrays.stream(rawModels.split(","))
+                .map(String::trim)
+                .filter(model -> !model.isEmpty())
+                .map(model -> model.toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     private String selectChatModel() {
         List<String> candidates = compatibleNonStreamingModels();
         if (candidates.isEmpty()) {
-            return chatModel;
+            return isAllowedChatModel(chatModel) ? chatModel : "qwen3.6-flash";
         }
         return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
     }
@@ -274,5 +294,9 @@ public class QwenProvider implements LlmProvider {
         String normalized = model.trim().toLowerCase();
         return !normalized.equals("glm-4.5-air")
                 && !normalized.contains("ocr");
+    }
+
+    private boolean isAllowedChatModel(String model) {
+        return model != null && allowedChatModelSet.contains(model.trim().toLowerCase(Locale.ROOT));
     }
 }

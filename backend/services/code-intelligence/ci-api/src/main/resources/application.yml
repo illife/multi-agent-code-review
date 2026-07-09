@@ -85,7 +85,8 @@ qwen:
   api-key: ${QWEN_API_KEY:placeholder-qwen-api-key}
   api-url: ${QWEN_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
   chat-model: ${QWEN_CHAT_MODEL:qwen3.6-flash}
-  chat-models: ${QWEN_CHAT_MODELS:qwen3.6-flash,qwen3.7-plus}
+  chat-models: ${QWEN_CHAT_MODELS:qwen3.6-flash}
+  allowed-chat-models: ${QWEN_ALLOWED_CHAT_MODELS:qwen3.6-flash}
   max-tokens: ${QWEN_MAX_TOKENS:8000}
   temperature: ${QWEN_TEMPERATURE:0.7}
   # Rate limiting to prevent 429 errors

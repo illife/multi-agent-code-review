@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.Arrays;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -37,6 +39,9 @@ public class QwenChatProvider implements ChatProvider {
     @Value("${qwen.chat-models:}")
     private String chatModels;
 
+    @Value("${qwen.allowed-chat-models:qwen3.6-flash}")
+    private String allowedChatModels;
+
     @Value("${qwen.max-tokens:2000}")
     private int maxTokens;
 
@@ -46,10 +51,13 @@ public class QwenChatProvider implements ChatProvider {
     private final WebClient.Builder webClientBuilder = WebClient.builder();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private List<String> chatModelPool = List.of();
+    private Set<String> allowedChatModelSet = Set.of();
 
     @jakarta.annotation.PostConstruct
     public void init() {
+        this.allowedChatModelSet = parseAllowedModelSet(allowedChatModels);
         this.chatModelPool = parseModelPool(chatModels);
+        log.info("Qwen allowed chat models: {}", allowedChatModelSet);
         log.info("Qwen chat model pool: {}", chatModelPool.isEmpty() ? "disabled" : chatModelPool);
         if (!chatModelPool.isEmpty()) {
             log.info("Qwen non-streaming chat model pool: {}", compatibleModels(false));
@@ -217,14 +225,26 @@ public class QwenChatProvider implements ChatProvider {
         return Arrays.stream(rawModels.split(","))
             .map(String::trim)
             .filter(model -> !model.isEmpty())
+            .filter(this::isAllowedChatModel)
             .distinct()
             .toList();
+    }
+
+    private Set<String> parseAllowedModelSet(String rawModels) {
+        if (rawModels == null || rawModels.isBlank()) {
+            return Set.of("qwen3.6-flash");
+        }
+        return Arrays.stream(rawModels.split(","))
+            .map(String::trim)
+            .filter(model -> !model.isEmpty())
+            .map(model -> model.toLowerCase(Locale.ROOT))
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     private String selectChatModel(boolean stream) {
         List<String> candidates = compatibleModels(stream);
         if (candidates.isEmpty()) {
-            return chatModel;
+            return isAllowedChatModel(chatModel) ? chatModel : "qwen3.6-flash";
         }
         return candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
     }
@@ -244,5 +264,9 @@ public class QwenChatProvider implements ChatProvider {
             return false;
         }
         return stream || !normalized.equals("glm-4.5-air");
+    }
+
+    private boolean isAllowedChatModel(String model) {
+        return model != null && allowedChatModelSet.contains(model.trim().toLowerCase(Locale.ROOT));
     }
 }
