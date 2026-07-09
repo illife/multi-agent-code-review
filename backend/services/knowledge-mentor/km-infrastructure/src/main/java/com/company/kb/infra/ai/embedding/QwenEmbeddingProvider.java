@@ -2,8 +2,10 @@ package com.company.kb.infra.ai.embedding;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageAuditService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -33,8 +35,16 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
     private final WebClient.Builder webClientBuilder = WebClient.builder();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Nullable
+    private final AiUsageAuditService aiUsageAuditService;
+
+    public QwenEmbeddingProvider(@Nullable AiUsageAuditService aiUsageAuditService) {
+        this.aiUsageAuditService = aiUsageAuditService;
+    }
+
     @Override
     public float[] generateEmbedding(String text) throws Exception {
+        long startTime = System.currentTimeMillis();
         log.debug("千问向量化: textLength={}", text.length());
 
         try {
@@ -69,6 +79,7 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
                 }
 
                 log.debug("千问向量化成功: dim={}", vector.length);
+                recordEmbeddingAudit(List.of(text), root, System.currentTimeMillis() - startTime, true);
                 return vector;
             } else {
                 throw new RuntimeException("向量化失败：响应格式错误，data=" + data.toString());
@@ -76,6 +87,7 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
 
         } catch (Exception e) {
             log.error("千问向量化失败: textLength={}", text.length(), e);
+            recordEmbeddingAudit(List.of(text), null, System.currentTimeMillis() - startTime, false);
             throw new Exception("向量化失败: " + e.getMessage(), e);
         }
     }
@@ -202,12 +214,39 @@ public class QwenEmbeddingProvider implements EmbeddingProvider {
 
             log.info("千问批次向量化成功: count={}, duration={}ms, avgPerText={}ms",
                 result.size(), duration, duration / result.size());
+            recordEmbeddingAudit(texts, root, duration, true);
 
             return result;
 
         } catch (Exception e) {
             log.error("千问批次向量化失败: textCount={}", texts.size(), e);
+            recordEmbeddingAudit(texts, null, 0, false);
             throw e;
         }
+    }
+
+    private void recordEmbeddingAudit(List<String> texts, JsonNode responseRoot, long durationMs, boolean success) {
+        if (aiUsageAuditService == null) {
+            return;
+        }
+
+        long promptTokens = texts == null ? 0 : texts.stream()
+            .mapToLong(AiUsageAuditService::estimateTokens)
+            .sum();
+        JsonNode usage = responseRoot != null ? responseRoot.path("usage") : null;
+        long totalTokens = usage != null ? usage.path("total_tokens").asLong(0) : 0;
+        if (totalTokens == 0) {
+            totalTokens = promptTokens;
+        }
+
+        aiUsageAuditService.record(AiUsageAuditService.AiUsageAuditEvent.builder()
+            .provider("qwen")
+            .model(embeddingModel)
+            .feature("knowledge-embedding")
+            .promptTokens(promptTokens)
+            .totalTokens(totalTokens)
+            .durationMs(durationMs)
+            .success(success)
+            .build());
     }
 }

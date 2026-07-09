@@ -1,6 +1,7 @@
 package com.codereview.ai.domain.agent.shared;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageAuditService;
 import com.think.platform.shared.infra.ai.AiUsageLimitExceededException;
 import com.think.platform.shared.infra.ai.AiUsageLimiter;
 import lombok.extern.slf4j.Slf4j;
@@ -100,7 +101,11 @@ public abstract class BaseAgent {
             }
 
             // 调用 AI 服务
-            String aiResponse = context.getAiService().chat(systemPrompt, userPrompt);
+            String principal = context.getUserId() != null ? "user:" + context.getUserId() : null;
+            String aiResponse;
+            try (AiUsageAuditService.Scope ignored = AiUsageAuditService.withContext(principal, getAgentType())) {
+                aiResponse = context.getAiService().chat(systemPrompt, userPrompt);
+            }
 
             // 解析响应
             AgentExecutionResult result = parseResponse(aiResponse, context);

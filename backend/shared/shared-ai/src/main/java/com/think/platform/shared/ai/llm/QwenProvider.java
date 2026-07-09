@@ -2,8 +2,11 @@ package com.think.platform.shared.ai.llm;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageAuditService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -57,6 +60,10 @@ public class QwenProvider implements LlmProvider {
     private List<String> chatModelPool = List.of();
     private Set<String> allowedChatModelSet = Set.of();
 
+    @Autowired(required = false)
+    @Nullable
+    private AiUsageAuditService aiUsageAuditService;
+
     public QwenProvider() {
         this.webClient = WebClient.builder()
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
@@ -86,8 +93,11 @@ public class QwenProvider implements LlmProvider {
 
     @Override
     public ChatResponse chat(ChatRequest request) {
+        long startTime = System.currentTimeMillis();
+        String selectedModel = null;
         try {
             Map<String, Object> requestBody = buildChatBody(request);
+            selectedModel = String.valueOf(requestBody.get("model"));
 
             String response = webClient.post()
                     .uri(apiUrl + "/chat/completions")
@@ -99,15 +109,19 @@ public class QwenProvider implements LlmProvider {
                     .retryWhen(Retry.backoff(3, Duration.ofSeconds(2)))
                     .block();
 
-            return parseChatResponse(response);
+            ChatResponse chatResponse = parseChatResponse(response);
+            recordChatAudit(request, chatResponse, selectedModel, System.currentTimeMillis() - startTime);
+            return chatResponse;
         } catch (Exception e) {
             log.error("Qwen chat failed", e);
+            recordChatFailure(request, selectedModel, System.currentTimeMillis() - startTime);
             return ChatResponse.failure("Qwen API 调用失败: " + e.getMessage());
         }
     }
 
     @Override
     public List<float[]> embed(List<String> texts) {
+        long startTime = System.currentTimeMillis();
         try {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", embeddingModel);
@@ -123,9 +137,12 @@ public class QwenProvider implements LlmProvider {
                     .bodyToMono(String.class)
                     .block();
 
-            return parseEmbeddingResponse(response);
+            List<float[]> embeddings = parseEmbeddingResponse(response);
+            recordEmbeddingAudit(texts, response, true, System.currentTimeMillis() - startTime);
+            return embeddings;
         } catch (Exception e) {
             log.error("Qwen embedding failed", e);
+            recordEmbeddingAudit(texts, null, false, System.currentTimeMillis() - startTime);
             throw new RuntimeException("Qwen embedding failed", e);
         }
     }
@@ -298,5 +315,95 @@ public class QwenProvider implements LlmProvider {
 
     private boolean isAllowedChatModel(String model) {
         return model != null && allowedChatModelSet.contains(model.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private void recordChatAudit(ChatRequest request, ChatResponse response, String selectedModel, long durationMs) {
+        if (aiUsageAuditService == null) {
+            return;
+        }
+
+        String model = response.getModel() != null && !response.getModel().isBlank()
+                ? response.getModel()
+                : selectedModel;
+        aiUsageAuditService.record(AiUsageAuditService.AiUsageAuditEvent.builder()
+                .provider("qwen")
+                .model(model)
+                .feature("shared-chat")
+                .promptTokens(response.getPromptTokens() != null ? response.getPromptTokens() : estimateChatPromptTokens(request))
+                .completionTokens(response.getCompletionTokens() != null ? response.getCompletionTokens() : 0)
+                .totalTokens(response.getTotalTokens() != null ? response.getTotalTokens() : 0)
+                .durationMs(durationMs)
+                .success(response.isSuccess())
+                .build());
+    }
+
+    private void recordChatFailure(ChatRequest request, String selectedModel, long durationMs) {
+        if (aiUsageAuditService == null) {
+            return;
+        }
+
+        aiUsageAuditService.record(AiUsageAuditService.AiUsageAuditEvent.builder()
+                .provider("qwen")
+                .model(selectedModel != null ? selectedModel : chatModel)
+                .feature("shared-chat")
+                .promptTokens(estimateChatPromptTokens(request))
+                .durationMs(durationMs)
+                .success(false)
+                .build());
+    }
+
+    private void recordEmbeddingAudit(List<String> texts, String response, boolean success, long durationMs) {
+        if (aiUsageAuditService == null) {
+            return;
+        }
+
+        long promptTokens = estimateTextsTokens(texts);
+        long totalTokens = usageToken(response, "total_tokens");
+        if (totalTokens == 0) {
+            totalTokens = promptTokens;
+        }
+
+        aiUsageAuditService.record(AiUsageAuditService.AiUsageAuditEvent.builder()
+                .provider("qwen")
+                .model(embeddingModel)
+                .feature("shared-embedding")
+                .promptTokens(promptTokens)
+                .totalTokens(totalTokens)
+                .durationMs(durationMs)
+                .success(success)
+                .build());
+    }
+
+    private int estimateChatPromptTokens(ChatRequest request) {
+        if (request == null) {
+            return 0;
+        }
+        int total = AiUsageAuditService.estimateTokens(request.getSystemPrompt());
+        if (request.getMessages() != null) {
+            for (ChatRequest.Message message : request.getMessages()) {
+                total += AiUsageAuditService.estimateTokens(message.getContent());
+            }
+        }
+        return total;
+    }
+
+    private long estimateTextsTokens(List<String> texts) {
+        if (texts == null) {
+            return 0;
+        }
+        return texts.stream()
+                .mapToLong(AiUsageAuditService::estimateTokens)
+                .sum();
+    }
+
+    private long usageToken(String response, String field) {
+        if (response == null || response.isBlank()) {
+            return 0;
+        }
+        try {
+            return objectMapper.readTree(response).path("usage").path(field).asLong();
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }

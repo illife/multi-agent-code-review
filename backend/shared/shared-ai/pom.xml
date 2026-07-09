@@ -24,6 +24,11 @@
             <artifactId>shared-common</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.think.platform</groupId>
+            <artifactId>shared-infrastructure</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Spring Boot -->
         <dependency>

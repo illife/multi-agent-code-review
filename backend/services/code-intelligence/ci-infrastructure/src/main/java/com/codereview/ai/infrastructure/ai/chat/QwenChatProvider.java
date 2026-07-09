@@ -5,11 +5,13 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageAuditService;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -26,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -41,6 +44,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.ai.ChatClient {
 
     private final AgentMetrics agentMetrics;
+    @Nullable
+    private final AiUsageAuditService aiUsageAuditService;
 
     @Value("${qwen.api-key}")
     private String apiKey;
@@ -81,8 +86,10 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
     // Rate limiter to prevent 429 errors
     private Semaphore rateLimiter;
 
-    public QwenChatProvider(AgentMetrics agentMetrics) {
+    public QwenChatProvider(AgentMetrics agentMetrics,
+                            @Nullable AiUsageAuditService aiUsageAuditService) {
         this.agentMetrics = agentMetrics;
+        this.aiUsageAuditService = aiUsageAuditService;
     }
 
     @PostConstruct
@@ -143,6 +150,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
                     String answer = choices.get(0).path("message").path("content").asText();
                     log.info("Qwen answer generated successfully: answerLength={}", answer.length());
                     success = true;
+                    recordChatAudit(request, root, "ci-chat", System.currentTimeMillis() - startTime, true, 0);
                     return answer;
                 }
             }
@@ -152,6 +160,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
 
         } catch (Exception e) {
             log.error("Failed to generate answer from Qwen", e);
+            recordChatAudit(null, null, "ci-chat", System.currentTimeMillis() - startTime, false, 0);
             return "Error: " + e.getMessage();
         } finally {
             rateLimiter.release();
@@ -167,6 +176,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
         executorService.submit(() -> {
             long startTime = System.currentTimeMillis();
             AtomicBoolean success = new AtomicBoolean(false);
+            AtomicInteger streamedChars = new AtomicInteger(0);
 
             try {
                 log.info("Qwen streaming answer: questionLength={}, contextLength={}",
@@ -208,6 +218,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
                             // Record AI call metrics
                             long duration = System.currentTimeMillis() - startTime;
                             agentMetrics.recordAICall(duration, 0, success.get());
+                            recordChatAudit(request, null, "ci-chat-stream", duration, success.get(), streamedChars.get());
                         })
                         .subscribe(response -> {
                             try {
@@ -225,6 +236,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
                                     if (contentNode.isTextual()) {
                                         String content = contentNode.asText();
                                         if (!content.isEmpty()) {
+                                            streamedChars.addAndGet(content.length());
                                             callback.onToken(content);
                                         }
                                     }
@@ -241,6 +253,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
                 // Record AI call metrics for failed request
                 long duration = System.currentTimeMillis() - startTime;
                 agentMetrics.recordAICall(duration, 0, false);
+                recordChatAudit(null, null, "ci-chat-stream", duration, false, streamedChars.get());
 
                 callback.onError(e);
             }
@@ -316,6 +329,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
                 log.debug("Tool calling iteration {}/{}", iteration + 1, MAX_TOOL_CALL_ITERATIONS);
 
                 ChatRequest request = buildChatRequestWithTools(messages, tools);
+                long callStartTime = System.currentTimeMillis();
 
                 String response = webClientBuilder.build()
                         .post()
@@ -332,7 +346,9 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
                         .block(Duration.ofSeconds(60));
 
                 // Parse response and check for tool calls
-                ToolCallResult result = parseResponseWithTools(response);
+                JsonNode responseRoot = parseRoot(response);
+                ToolCallResult result = parseResponseWithTools(responseRoot);
+                recordChatAudit(request, responseRoot, "ci-tools", System.currentTimeMillis() - callStartTime, true, 0);
 
                 if (result.hasToolCalls()) {
                     // Execute tools and add results to messages
@@ -379,6 +395,7 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
             // Record AI call metrics for failed request
             long duration = System.currentTimeMillis() - startTime;
             agentMetrics.recordAICall(duration, 0, false);
+            recordChatAudit(null, null, "ci-tools", duration, false, 0);
 
             return "Error: " + e.getMessage();
         }
@@ -521,9 +538,21 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
      * Parse response that may contain tool calls
      * Returns ToolCallResult with tool calls info and content
      */
+    private JsonNode parseRoot(String response) throws Exception {
+        return objectMapper.readTree(response);
+    }
+
     private ToolCallResult parseResponseWithTools(String response) {
         try {
-            JsonNode root = objectMapper.readTree(response);
+            return parseResponseWithTools(parseRoot(response));
+        } catch (Exception e) {
+            log.error("Failed to parse response with tools", e);
+            return new ToolCallResult(false, List.of(), "Error: " + e.getMessage());
+        }
+    }
+
+    private ToolCallResult parseResponseWithTools(JsonNode root) {
+        try {
             JsonNode choices = root.path("choices");
 
             if (choices.isArray() && choices.size() > 0) {
@@ -725,6 +754,57 @@ public class QwenChatProvider implements ChatProvider, com.codereview.ai.domain.
 
     private boolean isAllowedChatModel(String model) {
         return model != null && allowedChatModelSet.contains(model.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private void recordChatAudit(ChatRequest request,
+                                 JsonNode responseRoot,
+                                 String feature,
+                                 long durationMs,
+                                 boolean success,
+                                 int estimatedCompletionChars) {
+        if (aiUsageAuditService == null) {
+            return;
+        }
+
+        String model = responseRoot != null && responseRoot.hasNonNull("model")
+                ? responseRoot.path("model").asText()
+                : request != null ? request.getModel() : chatModel;
+        JsonNode usage = responseRoot != null ? responseRoot.path("usage") : null;
+        long promptTokens = usage != null ? usage.path("prompt_tokens").asLong(0) : 0;
+        long completionTokens = usage != null ? usage.path("completion_tokens").asLong(0) : 0;
+        long totalTokens = usage != null ? usage.path("total_tokens").asLong(0) : 0;
+
+        if (promptTokens == 0) {
+            promptTokens = estimateMessagesTokens(request != null ? request.getMessages() : null);
+        }
+        if (completionTokens == 0 && estimatedCompletionChars > 0) {
+            completionTokens = AiUsageAuditService.estimateTokens("x".repeat(estimatedCompletionChars));
+        }
+        if (totalTokens == 0) {
+            totalTokens = promptTokens + completionTokens;
+        }
+
+        aiUsageAuditService.record(AiUsageAuditService.AiUsageAuditEvent.builder()
+                .provider("qwen")
+                .model(model)
+                .feature(feature)
+                .promptTokens(promptTokens)
+                .completionTokens(completionTokens)
+                .totalTokens(totalTokens)
+                .durationMs(durationMs)
+                .success(success)
+                .build());
+    }
+
+    private long estimateMessagesTokens(List<ChatProvider.ChatMessage> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return 0;
+        }
+        return messages.stream()
+                .map(ChatProvider.ChatMessage::content)
+                .filter(Objects::nonNull)
+                .mapToLong(AiUsageAuditService::estimateTokens)
+                .sum();
     }
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)

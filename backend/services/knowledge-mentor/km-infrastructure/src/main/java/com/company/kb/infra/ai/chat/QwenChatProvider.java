@@ -2,8 +2,10 @@ package com.company.kb.infra.ai.chat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageAuditService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -53,6 +55,13 @@ public class QwenChatProvider implements ChatProvider {
     private List<String> chatModelPool = List.of();
     private Set<String> allowedChatModelSet = Set.of();
 
+    @Nullable
+    private final AiUsageAuditService aiUsageAuditService;
+
+    public QwenChatProvider(@Nullable AiUsageAuditService aiUsageAuditService) {
+        this.aiUsageAuditService = aiUsageAuditService;
+    }
+
     @jakarta.annotation.PostConstruct
     public void init() {
         this.allowedChatModelSet = parseAllowedModelSet(allowedChatModels);
@@ -66,6 +75,7 @@ public class QwenChatProvider implements ChatProvider {
 
     @Override
     public String generateAnswer(String question, String context) throws Exception {
+        long startTime = System.currentTimeMillis();
         log.debug("千问生成答案: questionLength={}, contextLength={}",
             question.length(), context.length());
 
@@ -86,10 +96,12 @@ public class QwenChatProvider implements ChatProvider {
             String answer = root.path("choices").get(0).path("message").path("content").asText();
 
             log.debug("千问答案生成成功: answerLength={}", answer.length());
+            recordChatAudit(requestBody, root, System.currentTimeMillis() - startTime, true, 0);
             return answer;
 
         } catch (Exception e) {
             log.error("千问答案生成失败", e);
+            recordChatAudit(null, null, System.currentTimeMillis() - startTime, false, 0);
             throw new Exception("答案生成失败: " + e.getMessage(), e);
         }
     }
@@ -100,6 +112,8 @@ public class QwenChatProvider implements ChatProvider {
             question.length(), context.length());
 
         Map<String, Object> requestBody = buildChatRequest(question, context, true);
+        long startTime = System.currentTimeMillis();
+        java.util.concurrent.atomic.AtomicInteger streamedChars = new java.util.concurrent.atomic.AtomicInteger(0);
 
         // 使用独立的线程处理流式响应
         CompletableFuture.runAsync(() -> {
@@ -114,10 +128,12 @@ public class QwenChatProvider implements ChatProvider {
                     .bodyToFlux(String.class)
                     .doOnComplete(() -> {
                         log.info("千问流式生成完成，调用onComplete");
+                        recordChatAudit(requestBody, null, System.currentTimeMillis() - startTime, true, streamedChars.get());
                         callback.onComplete();
                     })
                     .doOnError(error -> {
                         log.error("千问流式请求失败", error);
+                        recordChatAudit(requestBody, null, System.currentTimeMillis() - startTime, false, streamedChars.get());
                         callback.onError(error);
                     })
                     .subscribe(
@@ -139,6 +155,7 @@ public class QwenChatProvider implements ChatProvider {
                                     if (contentNode.isTextual()) {
                                         String content = contentNode.asText();
                                         if (!content.isEmpty()) {
+                                            streamedChars.addAndGet(content.length());
                                             callback.onToken(content);
                                         }
                                     }
@@ -151,6 +168,7 @@ public class QwenChatProvider implements ChatProvider {
                     );
             } catch (Exception e) {
                 log.error("启动流式请求失败", e);
+                recordChatAudit(requestBody, null, System.currentTimeMillis() - startTime, false, streamedChars.get());
                 callback.onError(e);
             }
         });
@@ -268,5 +286,55 @@ public class QwenChatProvider implements ChatProvider {
 
     private boolean isAllowedChatModel(String model) {
         return model != null && allowedChatModelSet.contains(model.trim().toLowerCase(Locale.ROOT));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void recordChatAudit(Map<String, Object> requestBody,
+                                 JsonNode responseRoot,
+                                 long durationMs,
+                                 boolean success,
+                                 int estimatedCompletionChars) {
+        if (aiUsageAuditService == null) {
+            return;
+        }
+
+        String model = responseRoot != null && responseRoot.hasNonNull("model")
+            ? responseRoot.path("model").asText()
+            : requestBody != null ? String.valueOf(requestBody.get("model")) : chatModel;
+        JsonNode usage = responseRoot != null ? responseRoot.path("usage") : null;
+        long promptTokens = usage != null ? usage.path("prompt_tokens").asLong(0) : 0;
+        long completionTokens = usage != null ? usage.path("completion_tokens").asLong(0) : 0;
+        long totalTokens = usage != null ? usage.path("total_tokens").asLong(0) : 0;
+
+        if (promptTokens == 0 && requestBody != null) {
+            Object messagesValue = requestBody.get("messages");
+            if (messagesValue instanceof List<?> messages) {
+                promptTokens = messages.stream()
+                    .filter(Map.class::isInstance)
+                    .map(Map.class::cast)
+                    .map(message -> message.get("content"))
+                    .filter(java.util.Objects::nonNull)
+                    .map(String::valueOf)
+                    .mapToLong(AiUsageAuditService::estimateTokens)
+                    .sum();
+            }
+        }
+        if (completionTokens == 0 && estimatedCompletionChars > 0) {
+            completionTokens = AiUsageAuditService.estimateTokens("x".repeat(estimatedCompletionChars));
+        }
+        if (totalTokens == 0) {
+            totalTokens = promptTokens + completionTokens;
+        }
+
+        aiUsageAuditService.record(AiUsageAuditService.AiUsageAuditEvent.builder()
+            .provider("qwen")
+            .model(model)
+            .feature("knowledge-chat")
+            .promptTokens(promptTokens)
+            .completionTokens(completionTokens)
+            .totalTokens(totalTokens)
+            .durationMs(durationMs)
+            .success(success)
+            .build());
     }
 }

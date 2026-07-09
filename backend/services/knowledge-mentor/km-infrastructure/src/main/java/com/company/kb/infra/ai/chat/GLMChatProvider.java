@@ -2,9 +2,11 @@ package com.company.kb.infra.ai.chat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.think.platform.shared.infra.ai.AiUsageAuditService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -27,9 +29,16 @@ public class GLMChatProvider implements ChatProvider {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    @Nullable
+    private final AiUsageAuditService aiUsageAuditService;
+
+    public GLMChatProvider(@Nullable AiUsageAuditService aiUsageAuditService) {
+        this.aiUsageAuditService = aiUsageAuditService;
+    }
 
     @Override
     public String generateAnswer(String question, String context) throws Exception {
+        long startTime = System.currentTimeMillis();
         log.debug("智谱生成答案: questionLength={}, contextLength={}",
             question.length(), context.length());
 
@@ -48,15 +57,22 @@ public class GLMChatProvider implements ChatProvider {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Authorization", "Bearer " + apiKey);
 
-        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
-        ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+        try {
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
-        // 解析响应
-        JsonNode root = objectMapper.readTree(response.getBody());
-        String answer = root.path("choices").get(0).path("message").path("content").asText();
+            // 解析响应
+            JsonNode root = objectMapper.readTree(response.getBody());
+            String answer = root.path("choices").get(0).path("message").path("content").asText();
+            JsonNode usage = root.path("usage");
+            recordAudit(question, context, answer.length(), usage, System.currentTimeMillis() - startTime, true);
 
-        log.debug("智谱答案生成成功: answerLength={}", answer.length());
-        return answer;
+            log.debug("智谱答案生成成功: answerLength={}", answer.length());
+            return answer;
+        } catch (Exception e) {
+            recordAudit(question, context, 0, null, System.currentTimeMillis() - startTime, false);
+            throw e;
+        }
     }
 
     @Override
@@ -87,5 +103,40 @@ public class GLMChatProvider implements ChatProvider {
             "请基于上下文信息回答问题，并在回答中引用来源。",
             context, question
         );
+    }
+
+    private void recordAudit(String question,
+                             String context,
+                             int answerChars,
+                             JsonNode usage,
+                             long durationMs,
+                             boolean success) {
+        if (aiUsageAuditService == null) {
+            return;
+        }
+
+        long promptTokens = usage != null ? usage.path("prompt_tokens").asLong(0) : 0;
+        long completionTokens = usage != null ? usage.path("completion_tokens").asLong(0) : 0;
+        long totalTokens = usage != null ? usage.path("total_tokens").asLong(0) : 0;
+        if (promptTokens == 0) {
+            promptTokens = AiUsageAuditService.estimateTokens(question) + AiUsageAuditService.estimateTokens(context);
+        }
+        if (completionTokens == 0 && answerChars > 0) {
+            completionTokens = AiUsageAuditService.estimateTokens("x".repeat(answerChars));
+        }
+        if (totalTokens == 0) {
+            totalTokens = promptTokens + completionTokens;
+        }
+
+        aiUsageAuditService.record(AiUsageAuditService.AiUsageAuditEvent.builder()
+            .provider("glm")
+            .model(chatModel)
+            .feature("knowledge-chat")
+            .promptTokens(promptTokens)
+            .completionTokens(completionTokens)
+            .totalTokens(totalTokens)
+            .durationMs(durationMs)
+            .success(success)
+            .build());
     }
 }
