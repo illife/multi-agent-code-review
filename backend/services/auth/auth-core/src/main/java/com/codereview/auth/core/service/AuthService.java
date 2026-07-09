@@ -76,6 +76,7 @@ public class AuthService {
             tokens.put("userId", user.getId().toString());
             tokens.put("username", user.getUsername());
             tokens.put("email", user.getEmail());
+            tokens.put("role", user.getRole() != null ? user.getRole().name() : "USER");
             tokens.put("emailVerified", String.valueOf(user.getEmailVerified()));
 
             return tokens;
@@ -111,6 +112,7 @@ public class AuthService {
         tokens.put("userId", user.getId().toString());
         tokens.put("username", user.getUsername());
         tokens.put("email", user.getEmail());
+        tokens.put("role", user.getRole() != null ? user.getRole().name() : "USER");
         tokens.put("emailVerified", String.valueOf(user.getEmailVerified()));
 
         return tokens;

@@ -60,6 +60,7 @@ const CodeReviewPage: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('')
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([])
   const [projectLoading, setProjectLoading] = useState(false)
+  const [projectLoadError, setProjectLoadError] = useState('')
   const [projectFilesLoading, setProjectFilesLoading] = useState(false)
 
   useEffect(() => {
@@ -102,6 +103,7 @@ const CodeReviewPage: React.FC = () => {
   const loadProjects = async () => {
     setProjectLoading(true)
     try {
+      setProjectLoadError('')
       const response = await projectService.getProjectList(0, 20)
       if (response.code === 200) {
         const list = response.data || []
@@ -111,10 +113,22 @@ const CodeReviewPage: React.FC = () => {
           const preferred = list.find((project) => project.status === 'COMPLETED') || list[0]
           setSelectedProjectId(preferred.id)
           await loadProjectFiles(preferred.id)
+        } else {
+          setSelectedProjectId('')
+          setProjectFiles([])
         }
+      } else {
+        setProjects([])
+        setSelectedProjectId('')
+        setProjectFiles([])
+        setProjectLoadError(response.message || '项目列表加载失败')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load projects:', error)
+      setProjects([])
+      setSelectedProjectId('')
+      setProjectFiles([])
+      setProjectLoadError(error.response?.data?.message || error.message || '项目列表加载失败，请重新登录后再试')
     } finally {
       setProjectLoading(false)
     }
@@ -488,6 +502,21 @@ const CodeReviewPage: React.FC = () => {
             <CardContent className="space-y-4">
               {projectLoading ? (
                 <div className="py-10 text-center text-sm text-slate-400">项目加载中...</div>
+              ) : projectLoadError ? (
+                <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-6 text-center">
+                  <AlertCircle className="mx-auto mb-3 h-10 w-10 text-amber-300" />
+                  <p className="text-sm font-semibold text-white">项目列表加载失败</p>
+                  <p className="mx-auto mt-2 max-w-xl text-sm text-amber-100/80">{projectLoadError}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-4 whitespace-nowrap border-white/15 text-slate-100 hover:bg-white/10"
+                    onClick={loadProjects}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    重新加载
+                  </Button>
+                </div>
               ) : projects.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-white/20 bg-slate-950/30 p-6 text-center">
                   <FolderKanban className="mx-auto mb-3 h-10 w-10 text-slate-500" />

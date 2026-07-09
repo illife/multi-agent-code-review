@@ -43,6 +43,7 @@ const ProjectPage: React.FC = () => {
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([])
   const [projectReport, setProjectReport] = useState<ProjectReport | null>(null)
   const [loading, setLoading] = useState(true)
+  const [projectLoadError, setProjectLoadError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<ProjectUploadProgress | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -70,12 +71,18 @@ const ProjectPage: React.FC = () => {
 
   const loadProjects = async () => {
     try {
+      setProjectLoadError('')
       const response = await projectService.getProjectList(0, 20)
       if (response.code === 200 && response.data) {
         setProjects(response.data)
+      } else {
+        setProjects([])
+        setProjectLoadError(response.message || '项目列表加载失败')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load projects:', error)
+      setProjects([])
+      setProjectLoadError(error.response?.data?.message || error.message || '项目列表加载失败，请重新登录后再试')
     } finally {
       setLoading(false)
     }
@@ -359,6 +366,22 @@ const ProjectPage: React.FC = () => {
         <CardContent>
           {loading ? (
             <div className="py-12 text-center text-slate-400">加载中...</div>
+          ) : projectLoadError ? (
+            <div className="rounded-lg border border-amber-300/25 bg-amber-300/10 p-6 text-center">
+              <AlertCircle className="mx-auto mb-3 h-10 w-10 text-amber-300" />
+              <h3 className="mb-2 text-lg font-semibold text-white">项目列表加载失败</h3>
+              <p className="mx-auto mb-4 max-w-xl text-sm text-amber-100/80">
+                {projectLoadError}
+              </p>
+              <Button
+                variant="outline"
+                className="border-white/15 text-slate-100 hover:bg-white/10"
+                onClick={loadProjects}
+              >
+                <RefreshCw className="h-4 w-4" />
+                重新加载
+              </Button>
+            </div>
           ) : projects.length === 0 ? (
             <div className="text-center py-12">
               <FolderKanban className="mx-auto mb-4 h-16 w-16 text-slate-600" />

@@ -38,7 +38,8 @@ public class TokenService {
      * 生成访问令牌
      */
     public String generateAccessToken(User user) {
-        return jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername());
+        String role = user.getRole() != null ? user.getRole().name() : User.Role.USER.name();
+        return jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), role);
     }
 
     /**

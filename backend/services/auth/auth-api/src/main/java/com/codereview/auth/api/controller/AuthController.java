@@ -56,7 +56,7 @@ public class AuthController {
                 Long.parseLong(tokens.get("userId")),
                 tokens.get("username"),
                 tokens.get("email"),
-                "USER",
+                tokens.getOrDefault("role", "USER"),
                 Boolean.parseBoolean(tokens.getOrDefault("emailVerified", "false"))
         );
 
@@ -78,7 +78,7 @@ public class AuthController {
                 Long.parseLong(tokens.get("userId")),
                 tokens.get("username"),
                 tokens.get("email"),
-                "USER",
+                tokens.getOrDefault("role", "USER"),
                 Boolean.parseBoolean(tokens.getOrDefault("emailVerified", "false"))
         );
 

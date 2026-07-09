@@ -48,12 +48,20 @@ public class JwtTokenProvider {
      * 生成 Access Token (用于用户ID和用户名)
      */
     public String generateAccessToken(Long userId, String username) {
+        return generateAccessToken(userId, username, "USER");
+    }
+
+    /**
+     * 生成 Access Token，包含角色信息，供 Gateway 下发 X-User-Role。
+     */
+    public String generateAccessToken(Long userId, String username, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpirationMs);
 
         return Jwts.builder()
                 .subject(Long.toString(userId))
                 .claim("username", username)
+                .claim("role", role != null ? role : "USER")
                 .claim("type", "access")
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -66,7 +74,8 @@ public class JwtTokenProvider {
      */
     public String generateAccessToken(Authentication authentication) {
         SharedUserDetails userDetails = (SharedUserDetails) authentication.getPrincipal();
-        return generateAccessToken(userDetails.getId(), userDetails.getUsername());
+        String role = userDetails.getRoles().stream().findFirst().orElse("USER");
+        return generateAccessToken(userDetails.getId(), userDetails.getUsername(), role);
     }
 
     /**
